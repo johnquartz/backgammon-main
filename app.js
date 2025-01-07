@@ -1,9 +1,23 @@
 // Initialize Telegram WebApp
 const telegram = window.Telegram?.WebApp;
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+// Initialize Firebase with debug logging
+try {
+    firebase.initializeApp(firebaseConfig);
+    console.log('Firebase initialized successfully');
+    const database = firebase.database();
+    
+    // Test database connection
+    database.ref('.info/connected').on('value', (snap) => {
+        if (snap.val() === true) {
+            console.log('Connected to Firebase');
+        } else {
+            console.log('Not connected to Firebase');
+        }
+    });
+} catch (error) {
+    console.error('Firebase initialization error:', error);
+}
 
 // Game states
 const GameState = {
