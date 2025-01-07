@@ -218,7 +218,6 @@ async function findMatch(amount) {
         });
     } catch (error) {
         clearTimeout(matchingTimeout); // Clear timeout on error
-        telegram.showAlert(`Matching error: ${error.message}`);
         throw error;
     }
 }
