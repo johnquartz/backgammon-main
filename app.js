@@ -112,9 +112,41 @@ async function handleBetSelection(button) {
     updateUI();
 
     try {
-        await findMatch(amount);
+        // Show status in UI
+        const matchingScreen = document.getElementById('matching-screen');
+        const statusText = document.createElement('p');
+        statusText.id = 'matching-status';
+        statusText.textContent = 'Joining queue...';
+        matchingScreen.appendChild(statusText);
+
+        // Add to matching queue
+        const matchingRef = database.ref(`matching/${amount}/${config.currentPlayer.id}`);
+        await matchingRef.set({
+            id: config.currentPlayer.id,
+            username: config.currentPlayer.username,
+            first_name: config.currentPlayer.first_name,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        statusText.textContent = 'Waiting for opponent...';
+        console.log(`Added to ${amount} stars queue`);
+
+        // Listen for game creation
+        const gamesRef = database.ref('games');
+        gamesRef.orderByChild(`players/${config.currentPlayer.id}/id`)
+               .equalTo(config.currentPlayer.id)
+               .limitToLast(1)
+               .on('child_added', (snapshot) => {
+                    const game = snapshot.val();
+                    if (game && game.betAmount === amount) {
+                        statusText.textContent = 'Opponent found!';
+                        console.log('Match found!', game);
+                        // TODO: Start the game
+                    }
+               });
+
     } catch (error) {
-        console.error('Error finding match:', error);
+        console.error('Error in matchmaking:', error);
         config.gameState = GameState.BETTING;
         updateUI();
         telegram.showAlert('Failed to find match. Please try again.');
@@ -124,9 +156,11 @@ async function handleBetSelection(button) {
 // Handle match cancellation
 function handleCancelMatch() {
     if (config.currentPlayer) {
-        // Remove player from matching queue
+        // Remove from matching queue
         const queueRef = database.ref(`matching/${config.betAmount}/${config.currentPlayer.id}`);
-        queueRef.remove();
+        queueRef.remove()
+            .then(() => console.log('Removed from queue'))
+            .catch(error => console.error('Error removing from queue:', error));
     }
     
     config.gameState = GameState.BETTING;
