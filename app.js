@@ -5,35 +5,9 @@ console.log('Firebase config:', window.firebaseConfig);
 // Initialize Telegram WebApp
 const telegram = window.Telegram?.WebApp;
 
-// Initialize Firebase with debug logging
-try {
-    console.log('Attempting to initialize Firebase...');
-    firebase.initializeApp(firebaseConfig);
-    console.log('Firebase initialized successfully');
-    const database = firebase.database();
-    
-    // Test database connection
-    database.ref('.info/connected').on('value', (snap) => {
-        if (snap.val() === true) {
-            console.log('Connected to Firebase');
-        } else {
-            console.log('Not connected to Firebase');
-        }
-    });
-
-    // Test write operation
-    const testRef = database.ref('test');
-    testRef.set({
-        timestamp: Date.now(),
-        test: 'Hello Firebase!'
-    })
-    .then(() => console.log('Test write successful'))
-    .catch(error => console.error('Test write failed:', error));
-
-} catch (error) {
-    console.error('Firebase initialization error:', error);
-    console.error('Error details:', error.message);
-}
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
 // Game states
 const GameState = {
@@ -69,17 +43,16 @@ function initializeApp() {
         telegramMessage.style.display = 'none';
         telegram.expand();
         
-        const user = telegram.initDataUnsafe?.user;
-        if (user) {
-            config.currentPlayer = user;
-            console.log('Connected user:', user.username);
-            
-            // Show welcome message
-            telegram.showPopup({
-                title: 'Welcome!',
-                message: `Ready to play, ${user.first_name}?`,
-                buttons: [{type: 'ok'}]
-            });
+        // Get user data
+        if (telegram.initDataUnsafe?.user) {
+            config.currentPlayer = {
+                id: telegram.initDataUnsafe.user.id,
+                username: telegram.initDataUnsafe.user.username || 'Anonymous',
+                first_name: telegram.initDataUnsafe.user.first_name || 'Player'
+            };
+            console.log('Connected user:', config.currentPlayer);
+        } else {
+            console.warn('No user data available');
         }
 
         setupEventListeners();
@@ -104,7 +77,17 @@ function setupEventListeners() {
 
 // Handle bet selection
 async function handleBetSelection(button) {
+    console.log('Handling bet selection...');
+    
+    // Check if we have user data
+    if (!config.currentPlayer) {
+        console.error('No user data available');
+        telegram.showAlert && telegram.showAlert('Unable to access user data. Please try again.');
+        return;
+    }
+
     const amount = parseInt(button.dataset.amount);
+    console.log(`Selected bet amount: ${amount}`);
     config.betAmount = amount;
     config.gameState = GameState.MATCHING;
     
@@ -114,10 +97,19 @@ async function handleBetSelection(button) {
     try {
         // Show status in UI
         const matchingScreen = document.getElementById('matching-screen');
-        const statusText = document.createElement('p');
-        statusText.id = 'matching-status';
+        let statusText = document.getElementById('matching-status');
+        if (!statusText) {
+            statusText = document.createElement('p');
+            statusText.id = 'matching-status';
+            matchingScreen.appendChild(statusText);
+        }
         statusText.textContent = 'Joining queue...';
-        matchingScreen.appendChild(statusText);
+
+        console.log('Adding to matching queue...', {
+            userId: config.currentPlayer.id,
+            username: config.currentPlayer.username,
+            betAmount: amount
+        });
 
         // Add to matching queue
         const matchingRef = database.ref(`matching/${amount}/${config.currentPlayer.id}`);
@@ -131,25 +123,11 @@ async function handleBetSelection(button) {
         statusText.textContent = 'Waiting for opponent...';
         console.log(`Added to ${amount} stars queue`);
 
-        // Listen for game creation
-        const gamesRef = database.ref('games');
-        gamesRef.orderByChild(`players/${config.currentPlayer.id}/id`)
-               .equalTo(config.currentPlayer.id)
-               .limitToLast(1)
-               .on('child_added', (snapshot) => {
-                    const game = snapshot.val();
-                    if (game && game.betAmount === amount) {
-                        statusText.textContent = 'Opponent found!';
-                        console.log('Match found!', game);
-                        // TODO: Start the game
-                    }
-               });
-
     } catch (error) {
         console.error('Error in matchmaking:', error);
         config.gameState = GameState.BETTING;
         updateUI();
-        telegram.showAlert('Failed to find match. Please try again.');
+        telegram.showAlert && telegram.showAlert('Failed to find match. Please try again.');
     }
 }
 
