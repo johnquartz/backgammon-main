@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backgammon Stars</title>
+    <!-- Load Telegram WebApp script first -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Add immediate debug logging -->
     <script>
-        // Immediate debug logging
         console.log('Page loading...');
         window.onload = function() {
             console.log('Window loaded');
@@ -13,11 +15,15 @@
             console.log('WebApp object available:', !!(window.Telegram && window.Telegram.WebApp));
         }
     </script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="app">
+    <!-- Add a container for the "open in Telegram" message -->
+    <div id="telegram-only-message" style="display: none; padding: 20px; text-align: center;">
+        Please open this web app inside Telegram!
+    </div>
+
+    <div id="app" style="display: none;">
         <div id="betting-screen" class="screen">
             <h1>Backgammon Stars</h1>
             <div class="bet-options">

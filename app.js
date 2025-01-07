@@ -23,12 +23,21 @@ const config = {
 function initializeApp() {
     console.log('Initializing app...');
     
+    const appElement = document.getElementById('app');
+    const telegramMessage = document.getElementById('telegram-only-message');
+    
     if (!telegram) {
-        document.body.innerHTML = '<div style="padding: 20px; text-align: center;">Please open this web app inside Telegram!</div>';
+        console.log('Not in Telegram WebApp');
+        appElement.style.display = 'none';
+        telegramMessage.style.display = 'block';
         return;
     }
 
     try {
+        // We are in Telegram WebApp
+        appElement.style.display = 'block';
+        telegramMessage.style.display = 'none';
+
         // Expand to full height
         telegram.expand();
         console.log('Expanded WebApp');
@@ -40,6 +49,13 @@ function initializeApp() {
         if (user) {
             config.currentPlayer = user;
             console.log('Connected user:', user.username);
+            
+            // Show welcome message
+            telegram.showPopup({
+                title: 'Welcome!',
+                message: `Ready to play, ${user.first_name}?`,
+                buttons: [{type: 'ok'}]
+            });
         } else {
             console.warn('No user data available');
         }
@@ -127,5 +143,5 @@ function updateUI() {
     }
 }
 
-// Start the app when document is ready
+// Make sure we initialize only after DOM is fully loaded
 document.addEventListener('DOMContentLoaded', initializeApp);
