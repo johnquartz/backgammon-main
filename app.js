@@ -1,6 +1,11 @@
 // Initialize Telegram WebApp
 const telegram = window.Telegram.WebApp;
 
+// Verify we're in Telegram client
+if (!telegram) {
+    alert('Please open this web app inside Telegram!');
+}
+
 // Game states
 const GameState = {
     BETTING: 'betting',    // Choosing bet amount
@@ -18,8 +23,23 @@ const config = {
 
 // Initialize the application
 function initializeApp() {
+    // Expand to full height
     telegram.expand();
-    config.currentPlayer = telegram.initDataUnsafe?.user;
+    
+    // Get user data
+    const user = telegram.initDataUnsafe?.user;
+    if (user) {
+        config.currentPlayer = user;
+        console.log('Connected user:', user.username);
+        
+        // Show welcome message
+        telegram.showPopup({
+            title: 'Welcome!',
+            message: `Ready to play, ${user.first_name}?`,
+            buttons: [{type: 'ok'}]
+        });
+    }
+
     setupEventListeners();
     updateUI();
 }
