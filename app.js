@@ -95,34 +95,11 @@ async function handleBetSelection(button) {
     updateUI();
 
     try {
-        // Show status in UI
-        const matchingScreen = document.getElementById('matching-screen');
-        let statusText = document.getElementById('matching-status');
-        if (!statusText) {
-            statusText = document.createElement('p');
-            statusText.id = 'matching-status';
-            matchingScreen.appendChild(statusText);
-        }
-        statusText.textContent = 'Joining queue...';
+        // Show matching status
+        const statusText = document.getElementById('matching-status');
+        if (statusText) statusText.textContent = 'Finding opponent...';
 
-        console.log('Adding to matching queue...', {
-            userId: config.currentPlayer.id,
-            username: config.currentPlayer.username,
-            betAmount: amount
-        });
-
-        // Add to matching queue
-        const matchingRef = database.ref(`matching/${amount}/${config.currentPlayer.id}`);
-        await matchingRef.set({
-            id: config.currentPlayer.id,
-            username: config.currentPlayer.username,
-            first_name: config.currentPlayer.first_name,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-
-        statusText.textContent = 'Waiting for opponent...';
-        console.log(`Added to ${amount} stars queue`);
-
+        await findMatch(amount);
     } catch (error) {
         console.error('Error in matchmaking:', error);
         config.gameState = GameState.BETTING;
@@ -147,86 +124,101 @@ function handleCancelMatch() {
 }
 
 // Find match with specific bet amount
-function findMatch(betAmount) {
-    return new Promise((resolve, reject) => {
-        if (!config.currentPlayer) {
-            reject(new Error('No player data'));
-            return;
-        }
+async function findMatch(amount) {
+    console.log('Finding match for amount:', amount);
+    
+    if (!config.currentPlayer) {
+        throw new Error('No player data');
+    }
 
-        const matchingRef = database.ref(`matching/${betAmount}`);
+    const matchingRef = database.ref(`matching/${amount}`);
+    
+    // First, check for available opponents
+    const snapshot = await matchingRef.once('value');
+    const waitingPlayers = snapshot.val() || {};
+    const waitingPlayerIds = Object.keys(waitingPlayers);
+    
+    console.log('Waiting players:', waitingPlayerIds);
+    
+    // Find first player that isn't us
+    const opponent = waitingPlayerIds
+        .map(id => waitingPlayers[id])
+        .find(player => player.id !== config.currentPlayer.id);
+    
+    if (opponent) {
+        console.log('Found opponent:', opponent);
         
-        // First, check for available opponents
-        matchingRef.once('value', snapshot => {
-            const waitingPlayers = snapshot.val() || {};
-            const waitingPlayerIds = Object.keys(waitingPlayers);
-            
-            if (waitingPlayerIds.length > 0) {
-                // Found an opponent
-                const opponentId = waitingPlayerIds[0];
-                const opponent = waitingPlayers[opponentId];
-                
-                if (opponentId !== config.currentPlayer.id.toString()) {
-                    // Remove opponent from queue
-                    matchingRef.child(opponentId).remove();
-                    
-                    // Create a game session
-                    createGameSession(config.currentPlayer, opponent, betAmount);
-                    resolve();
-                    return;
+        // Remove both players from matching queue
+        await matchingRef.child(opponent.id.toString()).remove();
+        await matchingRef.child(config.currentPlayer.id.toString()).remove();
+        
+        // Create game session
+        const gameRef = database.ref('games').push();
+        const gameData = {
+            id: gameRef.key,
+            status: 'starting',
+            betAmount: amount,
+            currentTurn: config.currentPlayer.id,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            players: {
+                [config.currentPlayer.id]: {
+                    id: config.currentPlayer.id,
+                    username: config.currentPlayer.username,
+                    first_name: config.currentPlayer.first_name
+                },
+                [opponent.id]: {
+                    id: opponent.id,
+                    username: opponent.username,
+                    first_name: opponent.first_name
                 }
             }
-            
-            // No opponent found, add self to queue
-            matchingRef.child(config.currentPlayer.id).set({
-                id: config.currentPlayer.id,
-                username: config.currentPlayer.username,
-                first_name: config.currentPlayer.first_name,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-            
-            // Listen for opponent
-            const playerRef = matchingRef.child(config.currentPlayer.id);
-            playerRef.onDisconnect().remove();
-            
-            // Wait for game session
-            const gamesRef = database.ref('games');
-            gamesRef.orderByChild('players/' + config.currentPlayer.id)
-                   .limitToLast(1)
-                   .on('child_added', gameSnapshot => {
-                        const game = gameSnapshot.val();
-                        if (game && game.betAmount === betAmount) {
-                            playerRef.remove();
-                            gamesRef.off();
-                            resolve();
-                        }
-                   });
-        });
+        };
+        
+        await gameRef.set(gameData);
+        console.log('Game created:', gameData);
+        
+        // Update UI to game screen
+        config.gameState = GameState.PLAYING;
+        config.opponent = opponent;
+        updateUI();
+        return;
+    }
+    
+    // No opponent found, add self to queue
+    console.log('No opponent found, joining queue');
+    await matchingRef.child(config.currentPlayer.id.toString()).set({
+        id: config.currentPlayer.id,
+        username: config.currentPlayer.username,
+        first_name: config.currentPlayer.first_name,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
     });
-}
-
-// Create a new game session
-function createGameSession(player1, player2, betAmount) {
-    const gameRef = database.ref('games').push();
     
-    const gameData = {
-        betAmount: betAmount,
-        status: 'starting',
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        players: {
-            [player1.id]: {
-                username: player1.username,
-                first_name: player1.first_name
-            },
-            [player2.id]: {
-                username: player2.username,
-                first_name: player2.first_name
-            }
-        }
-    };
-    
-    gameRef.set(gameData);
-    return gameRef.key;
+    // Listen for game creation
+    return new Promise((resolve) => {
+        const gamesRef = database.ref('games');
+        const gameListener = gamesRef
+            .orderByChild(`players/${config.currentPlayer.id}/id`)
+            .equalTo(config.currentPlayer.id)
+            .limitToLast(1)
+            .on('child_added', async (snapshot) => {
+                const game = snapshot.val();
+                if (game && game.betAmount === amount) {
+                    // Found a game, clean up
+                    gamesRef.off('child_added', gameListener);
+                    await matchingRef.child(config.currentPlayer.id.toString()).remove();
+                    
+                    // Get opponent data
+                    const opponentId = Object.keys(game.players)
+                        .find(id => id !== config.currentPlayer.id.toString());
+                    config.opponent = game.players[opponentId];
+                    
+                    // Update UI
+                    config.gameState = GameState.PLAYING;
+                    updateUI();
+                    resolve();
+                }
+            });
+    });
 }
 
 // Update UI based on game state
