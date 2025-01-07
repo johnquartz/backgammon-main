@@ -77,34 +77,22 @@ function setupEventListeners() {
 
 // Handle bet selection
 async function handleBetSelection(button) {
-    console.log('Handling bet selection...');
-    
-    // Check if we have user data
     if (!config.currentPlayer) {
-        console.error('No user data available');
-        telegram.showAlert && telegram.showAlert('Unable to access user data. Please try again.');
+        telegram.showAlert('Unable to access user data. Please try again.');
         return;
     }
 
     const amount = parseInt(button.dataset.amount);
-    console.log(`Selected bet amount: ${amount}`);
     config.betAmount = amount;
     config.gameState = GameState.MATCHING;
-    
-    document.getElementById('selected-bet').textContent = amount;
     updateUI();
 
     try {
-        // Show matching status
-        const statusText = document.getElementById('matching-status');
-        if (statusText) statusText.textContent = 'Finding opponent...';
-
         await findMatch(amount);
     } catch (error) {
-        console.error('Error in matchmaking:', error);
         config.gameState = GameState.BETTING;
         updateUI();
-        telegram.showAlert && telegram.showAlert('Failed to find match. Please try again.');
+        telegram.showAlert('Failed to find match. Please try again.');
     }
 }
 
@@ -130,12 +118,21 @@ async function findMatch(amount) {
     }
 
     const matchingRef = database.ref(`matching/${amount}`);
+    let matchingTimeout;
     
     try {
-        // Update UI to show status
-        const statusText = document.getElementById('matching-status');
-        if (statusText) statusText.textContent = 'Checking for opponents...';
-        
+        // Set timeout to remove player after 2 minutes
+        matchingTimeout = setTimeout(async () => {
+            try {
+                await matchingRef.child(config.currentPlayer.id.toString()).remove();
+                config.gameState = GameState.BETTING;
+                updateUI();
+                telegram.showAlert('No opponent found. Please try again.');
+            } catch (error) {
+                telegram.showAlert('Error removing from queue');
+            }
+        }, 2 * 60 * 1000); // 2 minutes
+
         // First, check for available opponents
         const snapshot = await matchingRef.once('value');
         const waitingPlayers = snapshot.val() || {};
@@ -145,8 +142,8 @@ async function findMatch(amount) {
             .filter(player => player.id !== config.currentPlayer.id);
             
         if (opponents.length > 0) {
+            clearTimeout(matchingTimeout); // Clear timeout since we found a match
             const opponent = opponents[0];
-            statusText.textContent = 'Found an opponent! Starting game...';
             
             // Remove both players from queue
             await Promise.all([
@@ -184,7 +181,6 @@ async function findMatch(amount) {
         }
         
         // No opponent found, add self to queue
-        statusText.textContent = 'Waiting for an opponent...';
         await matchingRef.child(config.currentPlayer.id.toString()).set({
             id: config.currentPlayer.id,
             username: config.currentPlayer.username,
@@ -204,6 +200,7 @@ async function findMatch(amount) {
                     const game = snapshot.val();
                     
                     if (game && game.betAmount === amount) {
+                        clearTimeout(matchingTimeout); // Clear timeout since we found a match
                         // Cleanup
                         gamesRef.off('child_added', gameListener);
                         await matchingRef.child(config.currentPlayer.id.toString()).remove();
@@ -220,6 +217,7 @@ async function findMatch(amount) {
                 });
         });
     } catch (error) {
+        clearTimeout(matchingTimeout); // Clear timeout on error
         telegram.showAlert(`Matching error: ${error.message}`);
         throw error;
     }
