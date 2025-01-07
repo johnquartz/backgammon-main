@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Test</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+</head>
+<body>
+    <h1>Firebase Connection Test</h1>
+    <div id="status">Checking connection...</div>
+
+    <script>
+        try {
+            console.log('Config:', window.firebaseConfig);
+            firebase.initializeApp(window.firebaseConfig);
+            const database = firebase.database();
+            
+            database.ref('.info/connected').on('value', (snap) => {
+                const status = document.getElementById('status');
+                if (snap.val() === true) {
+                    status.textContent = 'Connected to Firebase!';
+                    console.log('Connected to Firebase');
+                    
+                    // Try to write some data
+                    database.ref('test').set({
+                        time: new Date().toISOString(),
+                        message: 'Test connection'
+                    }).then(() => {
+                        status.textContent += '\nWrite successful!';
+                        console.log('Write successful');
+                    }).catch(error => {
+                        status.textContent += '\nWrite failed: ' + error.message;
+                        console.error('Write failed:', error);
+                    });
+                } else {
+                    status.textContent = 'Not connected to Firebase';
+                    console.log('Not connected to Firebase');
+                }
+            });
+        } catch (error) {
+            document.getElementById('status').textContent = 'Error: ' + error.message;
+            console.error('Firebase error:', error);
+        }
+    </script>
+</body>
+</html> 
