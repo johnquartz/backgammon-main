@@ -1,8 +1,13 @@
+// Debug logging
+console.log('Starting app initialization...');
+console.log('Firebase config:', window.firebaseConfig);
+
 // Initialize Telegram WebApp
 const telegram = window.Telegram?.WebApp;
 
 // Initialize Firebase with debug logging
 try {
+    console.log('Attempting to initialize Firebase...');
     firebase.initializeApp(firebaseConfig);
     console.log('Firebase initialized successfully');
     const database = firebase.database();
@@ -15,8 +20,19 @@ try {
             console.log('Not connected to Firebase');
         }
     });
+
+    // Test write operation
+    const testRef = database.ref('test');
+    testRef.set({
+        timestamp: Date.now(),
+        test: 'Hello Firebase!'
+    })
+    .then(() => console.log('Test write successful'))
+    .catch(error => console.error('Test write failed:', error));
+
 } catch (error) {
     console.error('Firebase initialization error:', error);
+    console.error('Error details:', error.message);
 }
 
 // Game states
