@@ -1,4 +1,4 @@
-const firebaseConfig = {
+window.firebaseConfig = {
     // Copy your config from Firebase Console here
     apiKey: "AIzaSyBOnYjPQXMHa96tJUanWxgAQ5UnQEp_2N0",
     authDomain: "betgammon-ba8bc.firebaseapp.com",
