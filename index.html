@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backgammon Stars</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div id="betting-screen" class="screen">
+            <h1>Backgammon Stars</h1>
+            <div class="bet-options">
+                <button class="bet-button" data-amount="1">
+                    <span class="stars">⭐</span>
+                    <span class="amount">1 Star</span>
+                </button>
+                <button class="bet-button" data-amount="100">
+                    <span class="stars">⭐</span>
+                    <span class="amount">100 Stars</span>
+                </button>
+                <button class="bet-button" data-amount="1000">
+                    <span class="stars">⭐</span>
+                    <span class="amount">1,000 Stars</span>
+                </button>
+                <button class="bet-button" data-amount="10000">
+                    <span class="stars">⭐</span>
+                    <span class="amount">10,000 Stars</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="matching-screen" class="screen hidden">
+            <h2>Finding Opponent</h2>
+            <p>Bet Amount: <span id="selected-bet">0</span> ⭐</p>
+            <div class="loader"></div>
+            <button id="cancel-match" class="secondary">Cancel</button>
+        </div>
+
+        <div id="game-screen" class="screen hidden">
+            <!-- Game board will be added here -->
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html> 
