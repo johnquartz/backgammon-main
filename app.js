@@ -1,10 +1,8 @@
 // Initialize Telegram WebApp
-const telegram = window.Telegram.WebApp;
+const telegram = window.Telegram?.WebApp;
 
-// Verify we're in Telegram client
-if (!telegram) {
-    alert('Please open this web app inside Telegram!');
-}
+// Debug logging
+console.log('Telegram object:', telegram);
 
 // Game states
 const GameState = {
@@ -23,25 +21,34 @@ const config = {
 
 // Initialize the application
 function initializeApp() {
-    // Expand to full height
-    telegram.expand();
+    console.log('Initializing app...');
     
-    // Get user data
-    const user = telegram.initDataUnsafe?.user;
-    if (user) {
-        config.currentPlayer = user;
-        console.log('Connected user:', user.username);
-        
-        // Show welcome message
-        telegram.showPopup({
-            title: 'Welcome!',
-            message: `Ready to play, ${user.first_name}?`,
-            buttons: [{type: 'ok'}]
-        });
+    if (!telegram) {
+        document.body.innerHTML = '<div style="padding: 20px; text-align: center;">Please open this web app inside Telegram!</div>';
+        return;
     }
 
-    setupEventListeners();
-    updateUI();
+    try {
+        // Expand to full height
+        telegram.expand();
+        console.log('Expanded WebApp');
+        
+        // Get user data
+        const user = telegram.initDataUnsafe?.user;
+        console.log('User data:', user);
+        
+        if (user) {
+            config.currentPlayer = user;
+            console.log('Connected user:', user.username);
+        } else {
+            console.warn('No user data available');
+        }
+
+        setupEventListeners();
+        updateUI();
+    } catch (error) {
+        console.error('Error during initialization:', error);
+    }
 }
 
 // Set up event listeners
