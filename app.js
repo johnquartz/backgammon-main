@@ -6,7 +6,18 @@ console.log('Firebase config:', window.firebaseConfig);
 const telegram = window.Telegram?.WebApp;
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+async function initializeFirebase() {
+    try {
+        const response = await fetch('your_bot_server_url/firebase-config');
+        const firebaseConfig = await response.json();
+        firebase.initializeApp(firebaseConfig);
+    } catch (error) {
+        telegram.showAlert('Error initializing app');
+    }
+}
+
+// Call this before using Firebase
+await initializeFirebase();
 const database = firebase.database();
 
 // Game states
