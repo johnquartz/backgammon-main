@@ -16,10 +16,6 @@ async function initializeFirebase() {
     }
 }
 
-// Call this before using Firebase
-await initializeFirebase();
-const database = firebase.database();
-
 // Game states
 const GameState = {
     BETTING: 'betting',
@@ -37,7 +33,7 @@ const config = {
 };
 
 // Initialize the application
-function initializeApp() {
+async function initializeApp() {
     console.log('Initializing app...');
     
     const appElement = document.getElementById('app');
@@ -51,6 +47,10 @@ function initializeApp() {
     }
 
     try {
+        // Initialize Firebase first
+        await initializeFirebase();
+        const database = firebase.database();
+        
         appElement.style.display = 'block';
         telegramMessage.style.display = 'none';
         telegram.expand();
@@ -71,6 +71,7 @@ function initializeApp() {
         updateUI();
     } catch (error) {
         console.error('Error during initialization:', error);
+        telegram.showAlert('Error initializing app. Please try again.');
     }
 }
 
