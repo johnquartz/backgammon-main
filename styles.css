@@ -62,4 +62,46 @@ button:hover {
     background-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
     color: var(--tg-theme-text-color, #000);
     margin-top: 20px;
+}
+
+.game-header {
+    padding: 10px;
+    margin-bottom: 20px;
+    background: var(--tg-theme-secondary-bg-color, #313131);
+    border-radius: 8px;
+}
+
+.player-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--tg-theme-text-color, #ffffff);
+}
+
+.bet-amount {
+    font-weight: bold;
+}
+
+.game-board {
+    min-height: 300px;
+    background: var(--tg-theme-secondary-bg-color, #313131);
+    border-radius: 8px;
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.placeholder-text {
+    color: var(--tg-theme-hint-color, #aaaaaa);
+}
+
+.game-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.button.secondary {
+    background: var(--tg-theme-secondary-bg-color, #313131);
 } 

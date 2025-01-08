@@ -243,6 +243,12 @@ function updateUI() {
             break;
         case GameState.PLAYING:
             gameScreen.classList.remove('hidden');
+            // Update game screen info
+            if (config.currentPlayer && config.opponent) {
+                document.getElementById('player1-name').textContent = config.currentPlayer.first_name;
+                document.getElementById('player2-name').textContent = config.opponent.first_name;
+                document.getElementById('bet-amount').textContent = config.betAmount;
+            }
             break;
     }
 }

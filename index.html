@@ -59,7 +59,23 @@
         </div>
 
         <div id="game-screen" class="screen hidden">
-            <!-- Game board will be added here -->
+            <div class="game-header">
+                <div class="player-info">
+                    <span id="player1-name">Player 1</span>
+                    <span class="bet-amount">⭐ <span id="bet-amount">0</span></span>
+                    <span id="player2-name">Player 2</span>
+                </div>
+            </div>
+            
+            <div id="game-board" class="game-board">
+                <!-- Game board will be added here -->
+                <div class="placeholder-text">Game Starting...</div>
+            </div>
+
+            <div class="game-controls">
+                <button id="roll-dice" class="button">Roll Dice</button>
+                <button id="resign" class="button secondary">Resign</button>
+            </div>
         </div>
     </div>
     <script src="app.js"></script>
