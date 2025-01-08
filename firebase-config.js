@@ -1,5 +1,4 @@
-window.firebaseConfig = {
-    // Copy your config from Firebase Console here
+const firebaseConfig = {
     apiKey: "AIzaSyBOnYjPQXMHa96tJUanWxgAQ5UnQEp_2N0",
     authDomain: "betgammon-ba8bc.firebaseapp.com",
     projectId: "betgammon-ba8bc",
@@ -9,3 +8,6 @@ window.firebaseConfig = {
     measurementId: "G-F364YC5E5E",
     databaseURL: "https://betgammon-ba8bc-default-rtdb.europe-west1.firebasedatabase.app"
 };
+
+// Make it available globally
+window.firebaseConfig = firebaseConfig;

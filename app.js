@@ -8,11 +8,10 @@ const telegram = window.Telegram?.WebApp;
 // Initialize Firebase
 async function initializeFirebase() {
     try {
-        const response = await fetch('your_bot_server_url/firebase-config');
-        const firebaseConfig = await response.json();
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(window.firebaseConfig);
     } catch (error) {
-        telegram.showAlert('Error initializing app');
+        telegram.showAlert && telegram.showAlert('Error initializing app');
+        throw error;
     }
 }
 
@@ -40,16 +39,13 @@ async function initializeApp() {
     const telegramMessage = document.getElementById('telegram-only-message');
     
     if (!telegram) {
-        console.log('Not in Telegram WebApp');
         appElement.style.display = 'none';
         telegramMessage.style.display = 'block';
         return;
     }
 
     try {
-        // Initialize Firebase first
         await initializeFirebase();
-        const database = firebase.database();
         
         appElement.style.display = 'block';
         telegramMessage.style.display = 'none';
@@ -62,16 +58,13 @@ async function initializeApp() {
                 username: telegram.initDataUnsafe.user.username || 'Anonymous',
                 first_name: telegram.initDataUnsafe.user.first_name || 'Player'
             };
-            console.log('Connected user:', config.currentPlayer);
-        } else {
-            console.warn('No user data available');
         }
 
         setupEventListeners();
         updateUI();
     } catch (error) {
-        console.error('Error during initialization:', error);
-        telegram.showAlert('Error initializing app. Please try again.');
+        // Only use showAlert if it's available
+        telegram.showAlert && telegram.showAlert('Error initializing app');
     }
 }
 
