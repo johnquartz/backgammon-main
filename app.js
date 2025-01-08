@@ -21,7 +21,8 @@ const config = {
     gameState: GameState.BETTING,
     currentPlayer: null,
     betAmount: 0,
-    opponent: null
+    opponent: null,
+    canPlay: false  // Will be set to true once we verify user has enough stars
 };
 
 // Initialize the application
@@ -83,6 +84,26 @@ async function handleBetSelection(button) {
     }
 
     const amount = parseInt(button.dataset.amount);
+    
+    // First check if user has enough stars
+    const hasEnoughStars = await checkUserStars(amount);
+    if (!hasEnoughStars) {
+        telegram.showAlert(`You need at least ${amount} stars to play this game`);
+        return;
+    }
+
+    // Request stars commitment
+    try {
+        const starsCommitted = await telegram.requestStarsPayment(amount);
+        if (!starsCommitted) {
+            telegram.showAlert('Failed to commit stars for the game');
+            return;
+        }
+    } catch (error) {
+        telegram.showAlert('Error committing stars for the game');
+        return;
+    }
+
     config.betAmount = amount;
     config.gameState = GameState.MATCHING;
     updateUI();
@@ -90,6 +111,8 @@ async function handleBetSelection(button) {
     try {
         await findMatch(amount);
     } catch (error) {
+        // If matching fails, return the stars
+        await telegram.returnStarsPayment(amount);
         config.gameState = GameState.BETTING;
         updateUI();
         telegram.showAlert('Failed to find match. Please try again.');
@@ -240,6 +263,8 @@ function updateUI() {
             break;
         case GameState.MATCHING:
             matchingScreen.classList.remove('hidden');
+            // Update matching screen bet amount
+            document.getElementById('matching-bet-amount').textContent = config.betAmount;
             break;
         case GameState.PLAYING:
             gameScreen.classList.remove('hidden');
@@ -251,6 +276,38 @@ function updateUI() {
             }
             break;
     }
+}
+
+// Add this function to check if user has enough stars
+async function checkUserStars(amount) {
+    try {
+        // Request stars amount verification from WebApp
+        const result = await telegram.requestStars(amount);
+        return result; // Returns true if user has enough stars
+    } catch (error) {
+        telegram.showAlert('Error checking stars balance');
+        return false;
+    }
+}
+
+// Add this function to handle game end
+async function handleGameEnd(winner) {
+    const totalPrize = config.betAmount * 2; // Both players' bets
+    
+    if (winner.id === config.currentPlayer.id) {
+        // Current player won
+        await telegram.sendStarsPayment(totalPrize);
+        telegram.showAlert(`Congratulations! You won ${totalPrize} stars!`);
+    } else {
+        // Opponent won
+        telegram.showAlert(`Game Over. You lost ${config.betAmount} stars.`);
+    }
+    
+    // Reset game state
+    config.gameState = GameState.BETTING;
+    config.betAmount = 0;
+    config.opponent = null;
+    updateUI();
 }
 
 // Make sure we initialize only after DOM is fully loaded
