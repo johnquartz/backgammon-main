@@ -8,9 +8,13 @@ const telegram = window.Telegram?.WebApp;
 // Initialize Firebase
 async function initializeFirebase() {
     try {
-        firebase.initializeApp(window.firebaseConfig);
+        if (!firebase.apps.length) {  // Only initialize if not already initialized
+            firebase.initializeApp(window.firebaseConfig);
+        }
+        return firebase.database();
     } catch (error) {
-        telegram.showAlert && telegram.showAlert('Error initializing app');
+        console.error('Firebase initialization error:', error);
+        telegram.showAlert && telegram.showAlert('Error connecting to game server');
         throw error;
     }
 }
@@ -32,8 +36,6 @@ const config = {
 
 // Initialize the application
 async function initializeApp() {
-    console.log('Initializing app...');
-    
     const appElement = document.getElementById('app');
     const telegramMessage = document.getElementById('telegram-only-message');
     
@@ -44,7 +46,8 @@ async function initializeApp() {
     }
 
     try {
-        await initializeFirebase();
+        const database = await initializeFirebase();
+        window.database = database;  // Make database globally available
         
         appElement.style.display = 'block';
         telegramMessage.style.display = 'none';
@@ -62,8 +65,7 @@ async function initializeApp() {
         setupEventListeners();
         updateUI();
     } catch (error) {
-        // Only use showAlert if it's available
-        telegram.showAlert && telegram.showAlert('Error initializing app');
+        console.error('App initialization error:', error);
     }
 }
 
@@ -80,7 +82,7 @@ function setupEventListeners() {
     cancelButton.addEventListener('click', handleCancelMatch);
 }
 
-// Handle bet selection
+// Handle bet selection - simplified version without star checking
 async function handleBetSelection(button) {
     if (!config.currentPlayer) {
         telegram.showAlert && telegram.showAlert('Unable to access user data. Please try again.');
@@ -89,9 +91,6 @@ async function handleBetSelection(button) {
 
     const amount = parseInt(button.dataset.amount);
     config.betAmount = amount;
-    
-    // For now, let's skip the star checking and proceed directly to matching
-    // We'll implement proper star checking later when the bot backend is ready
     config.gameState = GameState.MATCHING;
     updateUI();
 
