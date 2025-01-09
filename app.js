@@ -27,8 +27,7 @@ const config = {
     gameState: GameState.BETTING,
     currentPlayer: null,
     betAmount: 0,
-    opponent: null,
-    canPlay: false  // Will be set to true once we verify user has enough stars
+    opponent: null
 };
 
 // Initialize the application
@@ -84,43 +83,24 @@ function setupEventListeners() {
 // Handle bet selection
 async function handleBetSelection(button) {
     if (!config.currentPlayer) {
-        telegram.showAlert('Unable to access user data. Please try again.');
+        telegram.showAlert && telegram.showAlert('Unable to access user data. Please try again.');
         return;
     }
 
     const amount = parseInt(button.dataset.amount);
-    
-    // First check if user has enough stars
-    const hasEnoughStars = await checkUserStars(amount);
-    if (!hasEnoughStars) {
-        telegram.showAlert(`You need at least ${amount} stars to play this game`);
-        return;
-    }
-
-    // Request stars commitment
-    try {
-        const starsCommitted = await telegram.requestStarsPayment(amount);
-        if (!starsCommitted) {
-            telegram.showAlert('Failed to commit stars for the game');
-            return;
-        }
-    } catch (error) {
-        telegram.showAlert('Error committing stars for the game');
-        return;
-    }
-
     config.betAmount = amount;
+    
+    // For now, let's skip the star checking and proceed directly to matching
+    // We'll implement proper star checking later when the bot backend is ready
     config.gameState = GameState.MATCHING;
     updateUI();
 
     try {
         await findMatch(amount);
     } catch (error) {
-        // If matching fails, return the stars
-        await telegram.returnStarsPayment(amount);
         config.gameState = GameState.BETTING;
         updateUI();
-        telegram.showAlert('Failed to find match. Please try again.');
+        telegram.showAlert && telegram.showAlert('Failed to find match. Please try again.');
     }
 }
 
@@ -280,18 +260,6 @@ function updateUI() {
                 document.getElementById('bet-amount').textContent = config.betAmount;
             }
             break;
-    }
-}
-
-// Add this function to check if user has enough stars
-async function checkUserStars(amount) {
-    try {
-        // Request stars amount verification from WebApp
-        const result = await telegram.requestStars(amount);
-        return result; // Returns true if user has enough stars
-    } catch (error) {
-        telegram.showAlert('Error checking stars balance');
-        return false;
     }
 }
 
