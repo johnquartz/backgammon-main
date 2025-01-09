@@ -82,7 +82,7 @@ function setupEventListeners() {
     cancelButton.addEventListener('click', handleCancelMatch);
 }
 
-// Handle bet selection - simplified version without star checking
+// Handle bet selection
 async function handleBetSelection(button) {
     if (!config.currentPlayer) {
         telegram.showAlert && telegram.showAlert('Unable to access user data. Please try again.');
@@ -90,16 +90,37 @@ async function handleBetSelection(button) {
     }
 
     const amount = parseInt(button.dataset.amount);
-    config.betAmount = amount;
-    config.gameState = GameState.MATCHING;
-    updateUI();
-
+    
     try {
+        // Create bet through bot API
+        const response = await fetch('your_bot_url/create-bet', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: config.currentPlayer.id,
+                amount: amount
+            })
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+
+        // Process payment through Telegram
+        await telegram.openInvoice(result.invoice);
+        
+        config.betAmount = amount;
+        config.gameState = GameState.MATCHING;
+        updateUI();
+        
         await findMatch(amount);
     } catch (error) {
         config.gameState = GameState.BETTING;
         updateUI();
-        telegram.showAlert && telegram.showAlert('Failed to find match. Please try again.');
+        telegram.showAlert && telegram.showAlert('Failed to place bet. Please try again.');
     }
 }
 

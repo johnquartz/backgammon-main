@@ -11,21 +11,38 @@ admin.initializeApp({
 });
 
 const db = admin.database();
-
-// Initialize bot with your token
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-
-// Initialize Express server for WebApp communication
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// Handle /start command
+// Handle star transactions
+async function createStarTransaction(userId, amount) {
+    try {
+        const result = await bot.createInvoice(userId, {
+            title: `Backgammon Bet: ${amount} Stars`,
+            description: `Bet ${amount} stars on a game of backgammon`,
+            payload: `game_bet_${Date.now()}`,
+            currency: 'XTR',
+            prices: [{
+                label: 'Game Bet',
+                amount: amount
+            }]
+        });
+        return result;
+    } catch (error) {
+        console.error('Error creating star transaction:', error);
+        throw error;
+    }
+}
+
+// Bot commands
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    const webAppUrl = 'https://johnquartz.github.io/backgammon-main/'; // Update with your actual URL
+    const webAppUrl = 'https://johnquartz.github.io/backgammon-main/';
     
-    bot.sendMessage(chatId, 'Welcome to Backgammon Stars!��', {
+    bot.sendMessage(chatId, 'Welcome to Backgammon Stars! 🎲\nBet and win Telegram Stars!', {
         reply_markup: {
             inline_keyboard: [[
                 { text: 'Play Backgammon', web_app: { url: webAppUrl } }
@@ -34,103 +51,62 @@ bot.onText(/\/start/, async (msg) => {
     });
 });
 
-// API Endpoints for WebApp
-app.post('/checkStars', async (req, res) => {
-    const { userId, amount } = req.body;
+// Handle pre-checkout queries
+bot.on('pre_checkout_query', async (query) => {
+    try {
+        await bot.answerPreCheckoutQuery(query.id, true);
+    } catch (error) {
+        console.error('Error in pre-checkout:', error);
+        await bot.answerPreCheckoutQuery(query.id, false, 'Error processing stars');
+    }
+});
+
+// Handle successful payments
+bot.on('successful_payment', async (msg) => {
+    const userId = msg.from.id;
+    const amount = msg.successful_payment.total_amount;
     
     try {
-        // Here you would check user's star balance
-        // For now, we'll simulate it
-        const userStars = await getUserStars(userId);
-        const hasEnough = userStars >= amount;
+        // Add user to matching queue with their bet
+        const matchingRef = db.ref(`matching/${amount}/${userId}`);
+        await matchingRef.set({
+            id: userId,
+            timestamp: admin.database.ServerValue.TIMESTAMP,
+            transactionId: msg.successful_payment.telegram_payment_charge_id
+        });
         
-        res.json({ success: true, hasEnough });
+        bot.sendMessage(msg.chat.id, `Successfully placed bet of ${amount} Stars! Looking for opponent...`);
     } catch (error) {
-        res.json({ success: false, error: error.message });
+        console.error('Error handling successful payment:', error);
+        bot.sendMessage(msg.chat.id, 'Error processing your bet. Please try again.');
     }
 });
 
-app.post('/commitStars', async (req, res) => {
+// API Endpoints for WebApp
+app.post('/create-bet', async (req, res) => {
     const { userId, amount } = req.body;
     
     try {
-        // Lock stars for the game
-        await lockUserStars(userId, amount);
-        res.json({ success: true });
+        const invoice = await createStarTransaction(userId, amount);
+        res.json({ success: true, invoice });
     } catch (error) {
+        console.error('Error creating bet:', error);
         res.json({ success: false, error: error.message });
     }
 });
 
-app.post('/processGameEnd', async (req, res) => {
+app.post('/process-win', async (req, res) => {
     const { winnerId, loserId, amount } = req.body;
     
     try {
-        // Process star transfer
-        await transferStars(winnerId, loserId, amount);
+        // Process win through Telegram's star system
+        await bot.sendStars(winnerId, amount * 2); // Winner gets double the bet
         res.json({ success: true });
     } catch (error) {
+        console.error('Error processing win:', error);
         res.json({ success: false, error: error.message });
     }
 });
-
-// Add this to your existing Express routes
-app.get('/firebase-config', (req, res) => {
-    // You might want to add authentication here
-    res.json({
-        apiKey: process.env.FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID,
-        measurementId: process.env.FIREBASE_MEASUREMENT_ID,
-        databaseURL: process.env.FIREBASE_DATABASE_URL
-    });
-});
-
-// Helper functions
-async function getUserStars(userId) {
-    // In a real implementation, you would get this from Telegram
-    // For now, we'll simulate it with Firebase
-    const userRef = db.ref(`users/${userId}`);
-    const snapshot = await userRef.once('value');
-    return snapshot.val()?.stars || 0;
-}
-
-async function lockUserStars(userId, amount) {
-    // Lock stars in user's balance
-    const userRef = db.ref(`users/${userId}`);
-    const snapshot = await userRef.once('value');
-    const currentStars = snapshot.val()?.stars || 0;
-    
-    if (currentStars < amount) {
-        throw new Error('Insufficient stars');
-    }
-    
-    await userRef.update({
-        stars: currentStars - amount,
-        lockedStars: (snapshot.val()?.lockedStars || 0) + amount
-    });
-}
-
-async function transferStars(winnerId, loserId, amount) {
-    // Transfer stars from loser to winner
-    const batch = db.batch();
-    const winnerRef = db.ref(`users/${winnerId}`);
-    const loserRef = db.ref(`users/${loserId}`);
-    
-    // Update balances
-    await Promise.all([
-        winnerRef.update({
-            stars: admin.database.ServerValue.increment(amount * 2),
-            lockedStars: admin.database.ServerValue.increment(-amount)
-        }),
-        loserRef.update({
-            lockedStars: admin.database.ServerValue.increment(-amount)
-        })
-    ]);
-}
 
 // Start the server
 const PORT = process.env.PORT || 3000;
