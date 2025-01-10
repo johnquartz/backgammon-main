@@ -85,21 +85,15 @@ function setupEventListeners() {
 // Handle bet selection
 async function handleBetSelection(button) {
     if (!config.currentPlayer) {
-        telegram.showAlert && telegram.showAlert('Unable to access user data. Please try again.');
+        telegram.showAlert('Unable to access user data. Please try again.');
         return;
     }
 
     const amount = parseInt(button.dataset.amount);
     
     try {
-        // Log the request details
-        console.log('Creating bet:', {
-            userId: config.currentPlayer.id,
-            amount: amount
-        });
-
         // Create bet through bot API
-        const response = await fetch('your_render_url/create-bet', {
+        const response = await fetch('https://betgammon.onrender.com/create-bet', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -110,11 +104,16 @@ async function handleBetSelection(button) {
             })
         });
 
+        if (!response.ok) {
+            telegram.showAlert(`Server error: ${response.status}`);
+            return;
+        }
+
         const result = await response.json();
-        console.log('Bet creation response:', result);
 
         if (!result.success) {
-            throw new Error(result.error || 'Failed to create bet');
+            telegram.showAlert(`Error: ${result.error || 'Unknown error'}`);
+            return;
         }
 
         // Process payment through Telegram
@@ -126,10 +125,9 @@ async function handleBetSelection(button) {
         
         await findMatch(amount);
     } catch (error) {
-        console.error('Bet creation error:', error);
         config.gameState = GameState.BETTING;
         updateUI();
-        telegram.showAlert && telegram.showAlert(`Failed to place bet: ${error.message}`);
+        telegram.showAlert(`Connection error: ${error.message}`);
     }
 }
 
