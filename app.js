@@ -92,8 +92,14 @@ async function handleBetSelection(button) {
     const amount = parseInt(button.dataset.amount);
     
     try {
+        // Log the request details
+        console.log('Creating bet:', {
+            userId: config.currentPlayer.id,
+            amount: amount
+        });
+
         // Create bet through bot API
-        const response = await fetch('your_bot_url/create-bet', {
+        const response = await fetch('your_render_url/create-bet', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -105,8 +111,10 @@ async function handleBetSelection(button) {
         });
 
         const result = await response.json();
+        console.log('Bet creation response:', result);
+
         if (!result.success) {
-            throw new Error(result.error);
+            throw new Error(result.error || 'Failed to create bet');
         }
 
         // Process payment through Telegram
@@ -118,9 +126,10 @@ async function handleBetSelection(button) {
         
         await findMatch(amount);
     } catch (error) {
+        console.error('Bet creation error:', error);
         config.gameState = GameState.BETTING;
         updateUI();
-        telegram.showAlert && telegram.showAlert('Failed to place bet. Please try again.');
+        telegram.showAlert && telegram.showAlert(`Failed to place bet: ${error.message}`);
     }
 }
 
