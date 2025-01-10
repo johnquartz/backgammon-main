@@ -37,24 +37,21 @@ app.use(express.json());
 // Handle star transactions
 async function createStarTransaction(userId, amount) {
     try {
-        const invoice = {
-            chat_id: userId,
-            title: "Backgammon Stars Bet", // Must be 1-32 characters
-            description: `Place a bet of ${amount} Stars on a game of Backgammon`,
-            payload: `game_bet_${Date.now()}`,
-            currency: 'XTR',
-            prices: [{
-                label: 'Bet Amount',
+        const result = await bot.sendInvoice(
+            userId,                     // chat_id
+            "Backgammon Bet",          // title (1-32 characters)
+            `Bet ${amount} Stars`,      // description
+            `bet_${Date.now()}`,       // payload
+            "",                        // provider_token (empty for Stars)
+            "XTR",                     // currency
+            [{                         // prices array
+                label: "Bet",
                 amount: amount
-            }],
-            start_parameter: 'bet_game'
-        };
-
-        console.log('Sending invoice:', invoice);
-        const result = await bot.sendInvoice(userId, invoice);
+            }]
+        );
         return result;
     } catch (error) {
-        console.error('Error creating star transaction:', error);
+        console.error('Error details:', error);
         throw error;
     }
 }
