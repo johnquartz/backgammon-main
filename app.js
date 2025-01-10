@@ -92,7 +92,6 @@ async function handleBetSelection(button) {
     const amount = parseInt(button.dataset.amount);
     
     try {
-        // Create bet through bot API
         const response = await fetch('https://betgammon.onrender.com/create-bet', {
             method: 'POST',
             headers: {
@@ -116,9 +115,6 @@ async function handleBetSelection(button) {
             return;
         }
 
-        // Process payment through Telegram
-        await telegram.openInvoice(result.invoice);
-        
         config.betAmount = amount;
         config.gameState = GameState.MATCHING;
         updateUI();

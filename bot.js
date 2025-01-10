@@ -20,15 +20,16 @@ app.use(express.json());
 // Handle star transactions
 async function createStarTransaction(userId, amount) {
     try {
-        const result = await bot.createInvoice(userId, {
-            title: `Backgammon Bet: ${amount} Stars`,
-            description: `Bet ${amount} stars on a game of backgammon`,
-            payload: `game_bet_${Date.now()}`,
-            currency: 'XTR',
-            prices: [{
-                label: 'Game Bet',
-                amount: amount
-            }]
+        // Use the correct method for star transactions
+        const result = await bot.sendMessage(userId, `Bet ${amount} stars?`, {
+            reply_markup: {
+                inline_keyboard: [[
+                    {
+                        text: `Pay ${amount} ⭐`,
+                        pay: true
+                    }
+                ]]
+            }
         });
         return result;
     } catch (error) {
@@ -87,8 +88,8 @@ app.post('/create-bet', async (req, res) => {
     const { userId, amount } = req.body;
     
     try {
-        const invoice = await createStarTransaction(userId, amount);
-        res.json({ success: true, invoice });
+        const paymentMessage = await createStarTransaction(userId, amount);
+        res.json({ success: true, messageId: paymentMessage.message_id });
     } catch (error) {
         console.error('Error creating bet:', error);
         res.json({ success: false, error: error.message });
