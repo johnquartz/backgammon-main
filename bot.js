@@ -20,16 +20,18 @@ app.use(express.json());
 // Handle star transactions
 async function createStarTransaction(userId, amount) {
     try {
-        // Use the correct method for star transactions
-        const result = await bot.sendMessage(userId, `Bet ${amount} stars?`, {
-            reply_markup: {
-                inline_keyboard: [[
-                    {
-                        text: `Pay ${amount} ⭐`,
-                        pay: true
-                    }
-                ]]
-            }
+        // Properly send invoice for Stars (XTR)
+        const result = await bot.sendInvoice(userId, {
+            title: `Backgammon Bet: ${amount} Stars`,
+            description: `Place a bet of ${amount} Stars on a game of Backgammon`,
+            payload: `game_bet_${Date.now()}`,
+            provider_token: '', // Not needed for Stars
+            currency: 'XTR',
+            prices: [{
+                label: 'Game Bet',
+                amount: amount
+            }],
+            start_parameter: 'bet_game' // Required but can be any string
         });
         return result;
     } catch (error) {
@@ -52,34 +54,39 @@ bot.onText(/\/start/, async (msg) => {
     });
 });
 
-// Handle pre-checkout queries
+// Handle pre-checkout query
 bot.on('pre_checkout_query', async (query) => {
     try {
+        console.log('Received pre-checkout query:', query);
+        // Always approve for now - you might want to add validation later
         await bot.answerPreCheckoutQuery(query.id, true);
     } catch (error) {
-        console.error('Error in pre-checkout:', error);
-        await bot.answerPreCheckoutQuery(query.id, false, 'Error processing stars');
+        console.error('Pre-checkout error:', error);
+        await bot.answerPreCheckoutQuery(query.id, false, 'Payment failed, please try again.');
     }
 });
 
-// Handle successful payments
+// Handle successful payment
 bot.on('successful_payment', async (msg) => {
-    const userId = msg.from.id;
-    const amount = msg.successful_payment.total_amount;
-    
     try {
-        // Add user to matching queue with their bet
+        console.log('Received successful payment:', msg.successful_payment);
+        const userId = msg.from.id;
+        const amount = msg.successful_payment.total_amount;
+        const chargeId = msg.successful_payment.telegram_payment_charge_id;
+
+        // Store the payment in the database
         const matchingRef = db.ref(`matching/${amount}/${userId}`);
         await matchingRef.set({
             id: userId,
             timestamp: admin.database.ServerValue.TIMESTAMP,
-            transactionId: msg.successful_payment.telegram_payment_charge_id
+            chargeId: chargeId,
+            amount: amount
         });
-        
-        bot.sendMessage(msg.chat.id, `Successfully placed bet of ${amount} Stars! Looking for opponent...`);
+
+        await bot.sendMessage(msg.chat.id, `Successfully placed bet of ${amount} Stars! Looking for opponent...`);
     } catch (error) {
         console.error('Error handling successful payment:', error);
-        bot.sendMessage(msg.chat.id, 'Error processing your bet. Please try again.');
+        await bot.sendMessage(msg.chat.id, 'Error processing payment. Please try again.');
     }
 });
 
@@ -88,8 +95,8 @@ app.post('/create-bet', async (req, res) => {
     const { userId, amount } = req.body;
     
     try {
-        const paymentMessage = await createStarTransaction(userId, amount);
-        res.json({ success: true, messageId: paymentMessage.message_id });
+        const invoice = await createStarTransaction(userId, amount);
+        res.json({ success: true, invoice });
     } catch (error) {
         console.error('Error creating bet:', error);
         res.json({ success: false, error: error.message });
