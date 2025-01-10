@@ -119,6 +119,7 @@ async function handleBetSelection(button) {
         config.gameState = GameState.MATCHING;
         updateUI();
         
+        // Remove the polling here if it exists
         await findMatch(amount);
     } catch (error) {
         config.gameState = GameState.BETTING;
@@ -162,9 +163,9 @@ async function findMatch(amount) {
             } catch (error) {
                 telegram.showAlert('Error removing from queue');
             }
-        }, 2 * 60 * 1000); // 2 minutes
+        }, 2 * 60 * 1000);
 
-        // First, check for available opponents
+        // Use once() instead of on() to prevent continuous polling
         const snapshot = await matchingRef.once('value');
         const waitingPlayers = snapshot.val() || {};
         
@@ -173,82 +174,20 @@ async function findMatch(amount) {
             .filter(player => player.id !== config.currentPlayer.id);
             
         if (opponents.length > 0) {
-            clearTimeout(matchingTimeout); // Clear timeout since we found a match
-            const opponent = opponents[0];
-            
-            // Remove both players from queue
-            await Promise.all([
-                matchingRef.child(opponent.id.toString()).remove(),
-                matchingRef.child(config.currentPlayer.id.toString()).remove()
-            ]);
-            
-            // Create game session
-            const gameRef = database.ref('games').push();
-            
-            const gameData = {
-                status: 'starting',
-                betAmount: amount,
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
-                players: {
-                    [config.currentPlayer.id]: {
-                        id: config.currentPlayer.id,
-                        username: config.currentPlayer.username,
-                        first_name: config.currentPlayer.first_name
-                    },
-                    [opponent.id]: {
-                        id: opponent.id,
-                        username: opponent.username,
-                        first_name: opponent.first_name
-                    }
-                }
-            };
-            
-            await gameRef.set(gameData);
-            
-            config.opponent = opponent;
+            // Found an opponent
+            clearTimeout(matchingTimeout);
+            config.opponent = opponents[0];
             config.gameState = GameState.PLAYING;
             updateUI();
-            return;
+        } else {
+            // Add ourselves to the matching queue
+            await matchingRef.child(config.currentPlayer.id.toString()).set({
+                id: config.currentPlayer.id,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
         }
-        
-        // No opponent found, add self to queue
-        await matchingRef.child(config.currentPlayer.id.toString()).set({
-            id: config.currentPlayer.id,
-            username: config.currentPlayer.username,
-            first_name: config.currentPlayer.first_name,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-        
-        // Listen for matches
-        return new Promise((resolve) => {
-            const gamesRef = database.ref('games');
-            
-            const gameListener = gamesRef
-                .orderByChild(`players/${config.currentPlayer.id}/id`)
-                .equalTo(config.currentPlayer.id)
-                .limitToLast(1)
-                .on('child_added', async (snapshot) => {
-                    const game = snapshot.val();
-                    
-                    if (game && game.betAmount === amount) {
-                        clearTimeout(matchingTimeout); // Clear timeout since we found a match
-                        // Cleanup
-                        gamesRef.off('child_added', gameListener);
-                        await matchingRef.child(config.currentPlayer.id.toString()).remove();
-                        
-                        // Get opponent
-                        const opponentId = Object.keys(game.players)
-                            .find(id => id !== config.currentPlayer.id.toString());
-                        config.opponent = game.players[opponentId];
-                        
-                        config.gameState = GameState.PLAYING;
-                        updateUI();
-                        resolve();
-                    }
-                });
-        });
     } catch (error) {
-        clearTimeout(matchingTimeout); // Clear timeout on error
+        clearTimeout(matchingTimeout);
         throw error;
     }
 }

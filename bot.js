@@ -11,7 +11,24 @@ admin.initializeApp({
 });
 
 const db = admin.database();
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+let botInstance = null;
+
+function initBot() {
+    if (botInstance) {
+        return botInstance;
+    }
+
+    botInstance = new TelegramBot(process.env.BOT_TOKEN, { 
+        polling: true,
+        webHook: {
+            port: process.env.PORT
+        }
+    });
+
+    return botInstance;
+}
+
+const bot = initBot();
 const app = express();
 
 app.use(cors());
