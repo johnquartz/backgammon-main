@@ -7,6 +7,8 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 3000
+# Use PORT environment variable
+ENV PORT=3000
+EXPOSE $PORT
 
 CMD ["node", "bot.js"] 
