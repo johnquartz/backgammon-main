@@ -11,40 +11,33 @@ admin.initializeApp({
 });
 
 const db = admin.database();
-let botInstance = null;
-
-function initBot() {
-    if (botInstance) {
-        return botInstance;
-    }
-
-    botInstance = new TelegramBot(process.env.BOT_TOKEN, { 
-        polling: true,
-        webHook: {
-            port: process.env.PORT
-        }
-    });
-
-    return botInstance;
-}
-
-const bot = initBot();
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+// Initialize bot without polling
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+    webHook: {
+        port: process.env.PORT || 3000
+    }
+});
+
+// Set webhook
+const url = 'https://betgammon.onrender.com';
+bot.setWebHook(`${url}/webhook/${process.env.BOT_TOKEN}`);
+
 // Handle star transactions
 async function createStarTransaction(userId, amount) {
     try {
         const result = await bot.sendInvoice(
-            userId,                     // chat_id
-            "Backgammon Bet",          // title (1-32 characters)
-            `Bet ${amount} Stars`,      // description
-            `bet_${Date.now()}`,       // payload
-            "",                        // provider_token (empty for Stars)
-            "XTR",                     // currency
-            [{                         // prices array
+            userId,
+            "Backgammon Bet",
+            `Bet ${amount} Stars`,
+            `bet_${Date.now()}`,
+            "",
+            "XTR",
+            [{
                 label: "Bet",
                 amount: amount
             }]
@@ -55,6 +48,12 @@ async function createStarTransaction(userId, amount) {
         throw error;
     }
 }
+
+// Webhook endpoint
+app.post(`/webhook/${process.env.BOT_TOKEN}`, (req, res) => {
+    bot.handleUpdate(req.body);
+    res.sendStatus(200);
+});
 
 // Bot commands
 bot.onText(/\/start/, async (msg) => {
@@ -73,8 +72,6 @@ bot.onText(/\/start/, async (msg) => {
 // Handle pre-checkout query
 bot.on('pre_checkout_query', async (query) => {
     try {
-        console.log('Received pre-checkout query:', query);
-        // Always approve for now - you might want to add validation later
         await bot.answerPreCheckoutQuery(query.id, true);
     } catch (error) {
         console.error('Pre-checkout error:', error);
@@ -85,18 +82,15 @@ bot.on('pre_checkout_query', async (query) => {
 // Handle successful payment
 bot.on('successful_payment', async (msg) => {
     try {
-        console.log('Received successful payment:', msg.successful_payment);
         const userId = msg.from.id;
         const amount = msg.successful_payment.total_amount;
         const chargeId = msg.successful_payment.telegram_payment_charge_id;
 
-        // Store the payment in the database
         const matchingRef = db.ref(`matching/${amount}/${userId}`);
         await matchingRef.set({
             id: userId,
             timestamp: admin.database.ServerValue.TIMESTAMP,
-            chargeId: chargeId,
-            amount: amount
+            chargeId: chargeId
         });
 
         await bot.sendMessage(msg.chat.id, `Successfully placed bet of ${amount} Stars! Looking for opponent...`);
@@ -115,19 +109,6 @@ app.post('/create-bet', async (req, res) => {
         res.json({ success: true, invoice });
     } catch (error) {
         console.error('Error creating bet:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-app.post('/process-win', async (req, res) => {
-    const { winnerId, loserId, amount } = req.body;
-    
-    try {
-        // Process win through Telegram's star system
-        await bot.sendStars(winnerId, amount * 2); // Winner gets double the bet
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error processing win:', error);
         res.json({ success: false, error: error.message });
     }
 });
