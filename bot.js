@@ -28,18 +28,16 @@ bot.setWebHook(`${url}/webhook/${process.env.BOT_TOKEN}`);
 // Handle star transactions
 async function createStarTransaction(userId, amount) {
     try {
-        const result = await bot.sendInvoice(userId, {
-            title: "Backgammon Bet",
-            description: `Bet ${amount} Stars`,
-            payload: `bet_${Date.now()}`,
-            provider_token: "", // Not needed for Stars
-            currency: "XTR",
-            prices: [{
-                label: "Bet",
-                amount: amount
-            }],
-            start_parameter: "bet_game"
-        });
+        const result = await bot.sendInvoice(
+            userId,
+            "Backgammon Bet", // Title
+            `Bet ${amount} Stars`, // Description
+            `bet_${Date.now()}`, // Payload
+            "", // Provider token (not needed for Stars)
+            "XTR", // Currency
+            [{ label: "Bet", amount: amount }], // Prices
+            { start_parameter: "bet_game" } // Optional parameters
+        );
         return result;
     } catch (error) {
         console.error('Error details:', error);
