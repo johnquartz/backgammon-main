@@ -18,12 +18,8 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize bot without polling
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-    webHook: {
-        port: PORT
-    }
-});
+// Initialize bot without specifying port in webhook
+const bot = new TelegramBot(process.env.BOT_TOKEN);
 
 // Set webhook
 const url = 'https://betgammon.onrender.com';
@@ -115,8 +111,8 @@ app.post('/create-bet', async (req, res) => {
     }
 });
 
-// Only start the Express server, don't create another server
-app.listen(PORT, () => {
+// Start the Express server
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 }).on('error', (err) => {
     console.error('Server error:', err);
