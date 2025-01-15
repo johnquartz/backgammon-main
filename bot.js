@@ -49,7 +49,7 @@ async function createStarTransaction(userId, amount) {
 
 // Webhook endpoint
 app.post(`/webhook/${process.env.BOT_TOKEN}`, (req, res) => {
-    bot.handleUpdate(req.body);
+    bot.processUpdate(req.body);
     res.sendStatus(200);
 });
 
