@@ -87,23 +87,19 @@ bot.on('successful_payment', async (msg) => {
     try {
         const userId = msg.from.id;
         const amount = msg.successful_payment.total_amount;
-        const chargeId = msg.successful_payment.telegram_payment_charge_id;
 
-        // First confirm payment to user
-        await bot.sendMessage(msg.chat.id, `Payment of ${amount} Stars successful!`);
-
-        // Ask user if they want to start searching
-        await bot.sendMessage(msg.chat.id, 'Ready to search for an opponent?', {
-            reply_markup: {
-                inline_keyboard: [[
-                    { text: 'Start Search', callback_data: `start_search_${amount}` },
-                    { text: 'Cancel', callback_data: 'cancel_bet' }
-                ]]
-            }
+        // Now we can safely add to matching pool
+        const matchingRef = db.ref(`matching/${amount}/${userId}`);
+        await matchingRef.set({
+            id: userId,
+            timestamp: admin.database.ServerValue.TIMESTAMP,
+            paymentConfirmed: true  // Add this flag
         });
+
+        await bot.sendMessage(userId, 'Payment successful! Starting search for opponent...');
     } catch (error) {
         console.error('Error handling successful payment:', error);
-        await bot.sendMessage(msg.chat.id, 'Error processing payment. Please try again.');
+        await bot.sendMessage(userId, 'Error processing payment. Please try again.');
     }
 });
 
@@ -173,18 +169,48 @@ app.post('/create-bet', async (req, res) => {
     const { userId, amount } = req.body;
     
     try {
-        await bot.sendMessage(userId, `Ready to place a ${amount} Stars bet?`, {
-            reply_markup: {
-                inline_keyboard: [[
-                    { text: 'Confirm', callback_data: `confirm_bet_${amount}` },
-                    { text: 'Cancel', callback_data: 'cancel_bet' }
-                ]]
+        const result = await bot.sendInvoice(
+            userId,
+            "Backgammon Bet",
+            `Bet ${amount} Stars`,
+            `bet_${Date.now()}`,
+            "",
+            "XTR",
+            [{
+                label: "Bet",
+                amount: amount
+            }],
+            {
+                need_name: false,
+                need_phone_number: false,
+                need_email: false,
+                need_shipping_address: false,
+                is_flexible: false
             }
-        });
-        res.json({ success: true });
+        );
+        res.json({ success: true, result });
     } catch (error) {
-        console.error('Error creating bet:', error);
-        res.json({ success: false, error: error.message });
+        console.error('Error creating invoice:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Add endpoint to check payment status
+app.get('/check-payment-status/:userId/:amount', async (req, res) => {
+    try {
+        const { userId, amount } = req.params;
+        const matchingRef = db.ref(`matching/${amount}/${userId}`);
+        const snapshot = await matchingRef.once('value');
+        const data = snapshot.val();
+        
+        res.json({ 
+            success: true, 
+            isMatching: !!data,
+            paymentConfirmed: data?.paymentConfirmed || false
+        });
+    } catch (error) {
+        console.error('Error checking payment status:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

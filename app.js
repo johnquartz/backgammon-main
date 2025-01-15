@@ -95,40 +95,72 @@ async function handleBetSelection(button) {
     const amount = parseInt(button.dataset.amount);
     
     try {
-        const response = await fetch(`${API_URL}/create-bet`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                userId: config.currentPlayer.id,
-                amount: amount
-            })
-        });
-
-        if (!response.ok) {
-            telegram.showAlert(`Server error: ${response.status}`);
-            return;
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-            telegram.showAlert(`Error: ${result.error || 'Unknown error'}`);
-            return;
-        }
-
-        config.betAmount = amount;
-        config.gameState = GameState.MATCHING;
-        updateUI();
+        const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
         
-        // Remove the polling here if it exists
-        await findMatch(amount);
+        if (confirmed) {
+            // Request payment through Telegram
+            const response = await fetch(`${API_URL}/create-bet`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: window.Telegram.WebApp.initDataUnsafe.user.id,
+                    amount: amount
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to create bet');
+            }
+
+            // Show payment processing UI
+            showPaymentUI(amount);
+            
+            // Start polling for payment confirmation
+            startPaymentCheck(amount);
+        }
     } catch (error) {
-        config.gameState = GameState.BETTING;
-        updateUI();
-        telegram.showAlert(`Connection error: ${error.message}`);
+        console.error('Error:', error);
+        window.Telegram.WebApp.showAlert('Error: ' + error.message);
     }
+}
+
+async function startPaymentCheck(amount) {
+    const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+    const checkInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`${API_URL}/check-payment-status/${userId}/${amount}`);
+            const data = await response.json();
+            
+            if (data.success && data.paymentConfirmed) {
+                clearInterval(checkInterval);
+                showSearchingUI(amount);
+            }
+        } catch (error) {
+            console.error('Error checking payment status:', error);
+            clearInterval(checkInterval);
+            window.Telegram.WebApp.showAlert('Error checking payment status');
+        }
+    }, 2000); // Check every 2 seconds
+
+    // Clear interval after 5 minutes (timeout)
+    setTimeout(() => {
+        clearInterval(checkInterval);
+    }, 5 * 60 * 1000);
+}
+
+function showPaymentUI(amount) {
+    const bettingScreen = document.getElementById('betting-screen');
+    const paymentScreen = document.getElementById('payment-screen');
+    
+    bettingScreen.style.display = 'none';
+    paymentScreen.style.display = 'block';
+    paymentScreen.innerHTML = `
+        <h2>Processing Payment</h2>
+        <p>Please complete the payment of ${amount} Stars in Telegram.</p>
+        <button onclick="cancelBet()">Cancel</button>
+    `;
 }
 
 // Handle match cancellation
