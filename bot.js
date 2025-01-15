@@ -68,13 +68,8 @@ bot.onText(/\/start/, async (msg) => {
 });
 
 // Handle pre-checkout query
-bot.on('pre_checkout_query', async (query) => {
-    try {
-        await bot.answerPreCheckoutQuery(query.id, true);
-    } catch (error) {
-        console.error('Pre-checkout error:', error);
-        await bot.answerPreCheckoutQuery(query.id, false, 'Payment failed, please try again.');
-    }
+bot.on('pre_checkout_query', (query) => {
+    bot.answerPreCheckoutQuery(query.id, true);
 });
 
 // Handle successful payment
@@ -84,17 +79,70 @@ bot.on('successful_payment', async (msg) => {
         const amount = msg.successful_payment.total_amount;
         const chargeId = msg.successful_payment.telegram_payment_charge_id;
 
-        const matchingRef = db.ref(`matching/${amount}/${userId}`);
-        await matchingRef.set({
-            id: userId,
-            timestamp: admin.database.ServerValue.TIMESTAMP,
-            chargeId: chargeId
-        });
+        // First confirm payment to user
+        await bot.sendMessage(msg.chat.id, `Payment of ${amount} Stars successful!`);
 
-        await bot.sendMessage(msg.chat.id, `Successfully placed bet of ${amount} Stars! Looking for opponent...`);
+        // Ask user if they want to start searching
+        await bot.sendMessage(msg.chat.id, 'Ready to search for an opponent?', {
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: 'Start Search', callback_data: `start_search_${amount}` },
+                    { text: 'Cancel', callback_data: 'cancel_bet' }
+                ]]
+            }
+        });
     } catch (error) {
         console.error('Error handling successful payment:', error);
         await bot.sendMessage(msg.chat.id, 'Error processing payment. Please try again.');
+    }
+});
+
+// Handle button callbacks
+bot.on('callback_query', async (query) => {
+    const data = query.data;
+    
+    if (data.startsWith('start_search_')) {
+        const amount = parseInt(data.split('_')[2]);
+        const userId = query.from.id;
+        
+        // Add to matching pool
+        const matchingRef = db.ref(`matching/${amount}/${userId}`);
+        await matchingRef.set({
+            id: userId,
+            timestamp: admin.database.ServerValue.TIMESTAMP
+        });
+
+        await bot.editMessageText('Searching for opponent... ⏳', {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: 'Cancel Search', callback_data: 'cancel_search' }
+                ]]
+            }
+        });
+    } 
+    else if (data === 'cancel_bet') {
+        await bot.deleteMessage(query.message.chat.id, query.message.message_id);
+        await bot.sendMessage(query.message.chat.id, 'Bet cancelled. You can start a new bet anytime!');
+    }
+    else if (data === 'cancel_search') {
+        const userId = query.from.id;
+        // Remove from all matching pools
+        const matchingRef = db.ref('matching');
+        const snapshot = await matchingRef.once('value');
+        const amounts = snapshot.val() || {};
+        
+        Object.keys(amounts).forEach(async (amount) => {
+            if (amounts[amount][userId]) {
+                await db.ref(`matching/${amount}/${userId}`).remove();
+            }
+        });
+
+        await bot.editMessageText('Search cancelled. You can start a new bet anytime!', {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id
+        });
     }
 });
 
@@ -103,13 +151,34 @@ app.post('/create-bet', async (req, res) => {
     const { userId, amount } = req.body;
     
     try {
-        const invoice = await createStarTransaction(userId, amount);
-        res.json({ success: true, invoice });
+        await bot.sendMessage(userId, `Ready to place a ${amount} Stars bet?`, {
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: 'Confirm', callback_data: `confirm_bet_${amount}` },
+                    { text: 'Cancel', callback_data: 'cancel_bet' }
+                ]]
+            }
+        });
+        res.json({ success: true });
     } catch (error) {
         console.error('Error creating bet:', error);
         res.json({ success: false, error: error.message });
     }
 });
+
+// Add to callback_query handler
+if (data.startsWith('confirm_bet_')) {
+    const amount = parseInt(data.split('_')[2]);
+    try {
+        await createStarTransaction(query.from.id, amount);
+        await bot.deleteMessage(query.message.chat.id, query.message.message_id);
+    } catch (error) {
+        await bot.editMessageText('Error creating bet. Please try again.', {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id
+        });
+    }
+}
 
 // Start the Express server
 const server = app.listen(PORT, () => {
