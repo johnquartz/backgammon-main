@@ -309,19 +309,22 @@ function showSearchingUI(amount) {
 
 async function handleBetClick(amount) {
     try {
-        console.log('Bet button clicked:', amount);
+        // First show a test alert to verify the click handler works
+        window.Telegram.WebApp.showAlert(`Clicked ${amount} Stars`);
         
         const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
         
         if (confirmed) {
             const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
-            console.log('Sending request to:', `${API_URL}/create-bet`);
-            console.log('With data:', { userId, amount });
+            
+            // Show another alert before the fetch
+            window.Telegram.WebApp.showAlert(`Sending request for ${amount} Stars...`);
 
             const response = await fetch(`${API_URL}/create-bet`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     userId: userId,
@@ -334,10 +337,11 @@ async function handleBetClick(amount) {
             }
             
             const result = await response.json();
-            console.log('Response:', result);
+            
+            // Show the result
+            window.Telegram.WebApp.showAlert(`Request completed: ${JSON.stringify(result)}`);
         }
     } catch (error) {
-        console.error('Error:', error);
         window.Telegram.WebApp.showAlert('Error: ' + error.message);
     }
 }
