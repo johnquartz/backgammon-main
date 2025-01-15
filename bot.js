@@ -15,7 +15,13 @@ admin.initializeApp({
 const db = admin.database();
 const app = express();
 
-app.use(cors());
+// Enable CORS for GitHub Pages
+app.use(cors({
+    origin: 'https://johnquartz.github.io',
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
@@ -55,16 +61,20 @@ app.post(`/webhook/${process.env.BOT_TOKEN}`, (req, res) => {
 
 // Bot commands
 bot.onText(/\/start/, async (msg) => {
-    const chatId = msg.chat.id;
-    const webAppUrl = 'https://johnquartz.github.io/backgammon-main/';
-    
-    bot.sendMessage(chatId, 'Welcome to Backgammon Stars! 🎲\nBet and win Telegram Stars!', {
-        reply_markup: {
-            inline_keyboard: [[
-                { text: 'Play Backgammon', web_app: { url: webAppUrl } }
-            ]]
-        }
-    });
+    try {
+        await bot.sendMessage(msg.chat.id, 'Welcome to Backgammon Stars!', {
+            reply_markup: {
+                inline_keyboard: [[
+                    {
+                        text: 'Play Now',
+                        web_app: { url: 'https://johnquartz.github.io/backgammon-main/' }
+                    }
+                ]]
+            }
+        });
+    } catch (error) {
+        console.error('Error sending welcome message:', error);
+    }
 });
 
 // Handle pre-checkout query

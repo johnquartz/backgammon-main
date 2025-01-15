@@ -34,6 +34,9 @@ const config = {
     opponent: null
 };
 
+// Add this at the top of app.js
+const API_URL = 'https://betgammon.onrender.com';  // Your Render URL
+
 // Initialize the application
 async function initializeApp() {
     const appElement = document.getElementById('app');
@@ -92,7 +95,7 @@ async function handleBetSelection(button) {
     const amount = parseInt(button.dataset.amount);
     
     try {
-        const response = await fetch('https://betgammon.onrender.com/create-bet', {
+        const response = await fetch(`${API_URL}/create-bet`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
