@@ -5,8 +5,10 @@ const express = require('express');
 const cors = require('cors');
 
 // Initialize Firebase Admin
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+
 admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
+    credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://betgammon-ba8bc-default-rtdb.europe-west1.firebasedatabase.app"
 });
 
