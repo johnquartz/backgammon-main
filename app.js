@@ -95,10 +95,13 @@ async function handleBetSelection(button) {
     const amount = parseInt(button.dataset.amount);
     
     try {
+        console.log('Bet button clicked:', amount);
+        
         const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
+        console.log('User confirmed bet:', confirmed);
         
         if (confirmed) {
-            // Request payment through Telegram
+            console.log('Sending bet creation request...');
             const response = await fetch(`${API_URL}/create-bet`, {
                 method: 'POST',
                 headers: {
@@ -110,18 +113,17 @@ async function handleBetSelection(button) {
                 })
             });
 
+            console.log('Bet creation response:', await response.clone().json());
+
             if (!response.ok) {
                 throw new Error('Failed to create bet');
             }
 
             // Show payment processing UI
             showPaymentUI(amount);
-            
-            // Start polling for payment confirmation
-            startPaymentCheck(amount);
         }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error in handleBetClick:', error);
         window.Telegram.WebApp.showAlert('Error: ' + error.message);
     }
 }
@@ -151,9 +153,13 @@ async function startPaymentCheck(amount) {
 }
 
 function showPaymentUI(amount) {
+    console.log('Showing payment UI for amount:', amount);
     const bettingScreen = document.getElementById('betting-screen');
     const paymentScreen = document.getElementById('payment-screen');
+    const searchingScreen = document.getElementById('searching-screen');
     
+    // Make sure searching screen is hidden
+    searchingScreen.style.display = 'none';
     bettingScreen.style.display = 'none';
     paymentScreen.style.display = 'block';
     paymentScreen.innerHTML = `
@@ -282,3 +288,18 @@ async function handleGameEnd(winner) {
 
 // Make sure we initialize only after DOM is fully loaded
 document.addEventListener('DOMContentLoaded', initializeApp);
+
+// Make sure searching UI is only shown after payment confirmation
+function showSearchingUI(amount) {
+    console.log('Showing searching UI for amount:', amount);
+    const paymentScreen = document.getElementById('payment-screen');
+    const searchingScreen = document.getElementById('searching-screen');
+    
+    paymentScreen.style.display = 'none';
+    searchingScreen.style.display = 'block';
+    searchingScreen.innerHTML = `
+        <h2>Searching for Opponent</h2>
+        <p>Bet amount: ${amount} Stars</p>
+        <button onclick="cancelSearch(${amount})">Cancel Search</button>
+    `;
+}

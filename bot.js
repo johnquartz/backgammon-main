@@ -79,11 +79,13 @@ bot.onText(/\/start/, async (msg) => {
 
 // Handle pre-checkout query
 bot.on('pre_checkout_query', (query) => {
+    console.log('Received pre-checkout query:', query);
     bot.answerPreCheckoutQuery(query.id, true);
 });
 
 // Handle successful payment
 bot.on('successful_payment', async (msg) => {
+    console.log('Received successful payment:', msg);
     try {
         const userId = msg.from.id;
         const amount = msg.successful_payment.total_amount;
@@ -168,7 +170,10 @@ bot.on('callback_query', async (query) => {
 app.post('/create-bet', async (req, res) => {
     const { userId, amount } = req.body;
     
+    console.log('Received bet request:', { userId, amount });
+    
     try {
+        console.log('Attempting to send invoice...');
         const result = await bot.sendInvoice(
             userId,
             "Backgammon Bet",
@@ -188,9 +193,11 @@ app.post('/create-bet', async (req, res) => {
                 is_flexible: false
             }
         );
+        console.log('Invoice sent successfully:', result);
         res.json({ success: true, result });
     } catch (error) {
         console.error('Error creating invoice:', error);
+        console.error('Full error object:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
