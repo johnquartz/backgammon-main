@@ -79,28 +79,36 @@ bot.onText(/\/start/, async (msg) => {
 
 // Handle pre-checkout query
 bot.on('pre_checkout_query', (query) => {
-    console.log('Received pre-checkout query:', query);
-    bot.answerPreCheckoutQuery(query.id, true);
+    console.log('=== PRE-CHECKOUT QUERY ===');
+    console.log('Query details:', query);
+    bot.answerPreCheckoutQuery(query.id, true)
+        .then(() => console.log('Pre-checkout query answered successfully'))
+        .catch(error => console.error('Error answering pre-checkout:', error));
 });
 
 // Handle successful payment
 bot.on('successful_payment', async (msg) => {
-    console.log('Received successful payment:', msg);
+    console.log('=== SUCCESSFUL PAYMENT ===');
+    console.log('Payment details:', msg.successful_payment);
     try {
         const userId = msg.from.id;
         const amount = msg.successful_payment.total_amount;
 
-        // Now we can safely add to matching pool
+        console.log('Adding user to matching pool:', { userId, amount });
         const matchingRef = db.ref(`matching/${amount}/${userId}`);
         await matchingRef.set({
             id: userId,
             timestamp: admin.database.ServerValue.TIMESTAMP,
-            paymentConfirmed: true  // Add this flag
+            paymentConfirmed: true
         });
 
+        console.log('Successfully added to matching pool');
         await bot.sendMessage(userId, 'Payment successful! Starting search for opponent...');
     } catch (error) {
-        console.error('Error handling successful payment:', error);
+        console.error('Error handling successful payment:', {
+            message: error.message,
+            stack: error.stack
+        });
         await bot.sendMessage(userId, 'Error processing payment. Please try again.');
     }
 });
@@ -168,38 +176,50 @@ bot.on('callback_query', async (query) => {
 
 // API Endpoints for WebApp
 app.post('/create-bet', async (req, res) => {
+    console.log('=== START BET CREATION ===');
     const { userId, amount } = req.body;
     
-    console.log('Received bet request:', { userId, amount });
+    console.log('1. Received bet request:', { userId, amount });
     
     try {
-        console.log('Attempting to send invoice...');
+        console.log('2. Validating input...');
+        if (!userId || !amount) {
+            throw new Error('Missing userId or amount');
+        }
+
+        console.log('3. Attempting to send invoice...');
+        const invoiceParams = {
+            chat_id: userId,
+            title: "Backgammon Stars Bet",
+            description: "Place your bet to start playing",
+            payload: "bet-" + Date.now(),
+            provider_token: "",
+            currency: "XTR",
+            prices: [{ label: `${amount} Stars Bet`, amount: amount }]
+        };
+        console.log('4. Invoice parameters:', invoiceParams);
+
         const result = await bot.sendInvoice(
             userId,
-            "Backgammon Bet",
-            `Bet ${amount} Stars`,
-            `bet_${Date.now()}`,
+            "Backgammon Stars Bet",
+            "Place your bet to start playing",
+            "bet-" + Date.now(),
             "",
             "XTR",
-            [{
-                label: "Bet",
-                amount: amount
-            }],
-            {
-                need_name: false,
-                need_phone_number: false,
-                need_email: false,
-                need_shipping_address: false,
-                is_flexible: false
-            }
+            [{ label: `${amount} Stars Bet`, amount: amount }]
         );
-        console.log('Invoice sent successfully:', result);
+        
+        console.log('5. Invoice sent successfully:', result);
         res.json({ success: true, result });
     } catch (error) {
-        console.error('Error creating invoice:', error);
-        console.error('Full error object:', error);
+        console.error('ERROR in bet creation:', {
+            message: error.message,
+            stack: error.stack,
+            fullError: JSON.stringify(error, null, 2)
+        });
         res.status(500).json({ success: false, error: error.message });
     }
+    console.log('=== END BET CREATION ===');
 });
 
 // Add endpoint to check payment status
