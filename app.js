@@ -315,13 +315,15 @@ function showSearchingUI(amount) {
     `;
 }
 
-// Single click handler function
-async function handleBetClick(amount) {
-    // Disable the button immediately to prevent multiple clicks
-    const buttons = document.querySelectorAll('.bet-button');
-    buttons.forEach(btn => btn.disabled = true);
+// Add a flag to prevent multiple clicks
+let isProcessing = false;
 
+async function handleBetClick(amount) {
+    // If already processing a bet, ignore new clicks
+    if (isProcessing) return;
+    
     try {
+        isProcessing = true;
         const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
         
         const response = await fetch(`${API_URL}/create-bet`, {
@@ -353,10 +355,10 @@ async function handleBetClick(amount) {
     } catch (error) {
         console.error('Error:', error);
     } finally {
-        // Re-enable buttons after a short delay
+        // Reset processing flag after a short delay
         setTimeout(() => {
-            buttons.forEach(btn => btn.disabled = false);
-        }, 2000); // 2 seconds delay
+            isProcessing = false;
+        }, 2000);
     }
 }
 
