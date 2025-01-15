@@ -37,43 +37,34 @@ const config = {
     opponent: null
 };
 
-
-
-
-// Initialize the application
-async function initializeApp() {
-    const appElement = document.getElementById('app');
-    const telegramMessage = document.getElementById('telegram-only-message');
-    
-    if (!telegram) {
-        appElement.style.display = 'none';
-        telegramMessage.style.display = 'block';
+// Initialize function
+function initializeApp() {
+    if (!window.Telegram?.WebApp) {
+        console.error('Telegram WebApp not available');
         return;
     }
 
-    try {
-        const database = await initializeFirebase();
-        window.database = database;  // Make database globally available
-        
+    // Show the app
+    const appElement = document.getElementById('app');
+    if (appElement) {
         appElement.style.display = 'block';
-        telegramMessage.style.display = 'none';
-        telegram.expand();
-        
-        // Get user data
-        if (telegram.initDataUnsafe?.user) {
-            config.currentPlayer = {
-                id: telegram.initDataUnsafe.user.id,
-                username: telegram.initDataUnsafe.user.username || 'Anonymous',
-                first_name: telegram.initDataUnsafe.user.first_name || 'Player'
-            };
-        }
-
-        setupEventListeners();
-        updateUI();
-    } catch (error) {
-        console.error('App initialization error:', error);
     }
+
+    // Expand the WebApp
+    window.Telegram.WebApp.expand();
+
+    // Setup click handlers
+    const buttons = document.querySelectorAll('.bet-button');
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            const amount = parseInt(button.dataset.amount);
+            handleBetClick(amount);
+        });
+    });
 }
+
+// Call initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeApp);
 
 // Set up event listeners
 function setupEventListeners() {
