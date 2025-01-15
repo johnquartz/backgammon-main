@@ -320,34 +320,34 @@ async function handleBetClick(amount) {
     try {
         const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
         
-        // Single confirmation dialog
-        const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
-        
-        if (confirmed) {
-            const response = await fetch(`${API_URL}/create-bet`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    userId: userId,
-                    amount: parseInt(amount)
-                })
-            });
+        const response = await fetch(`${API_URL}/create-bet`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: userId,
+                amount: parseInt(amount)
+            })
+        });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            console.log('Bet creation result:', result);
-            
-            // Show payment UI
-            showPaymentUI(amount);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('Bet creation result:', result);
+        
+        // Show payment UI without any popups
+        const bettingScreen = document.getElementById('betting-screen');
+        const paymentScreen = document.getElementById('payment-screen');
+        
+        if (bettingScreen && paymentScreen) {
+            bettingScreen.style.display = 'none';
+            paymentScreen.style.display = 'block';
         }
     } catch (error) {
         console.error('Error:', error);
-        window.Telegram.WebApp.showAlert('Failed to create bet: ' + error.message);
     }
 }
 
