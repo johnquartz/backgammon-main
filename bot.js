@@ -36,7 +36,7 @@ async function createStarTransaction(userId, amount) {
             `Bet ${amount} Stars`, // Description
             `bet_${Date.now()}`, // Payload
             "", // Provider token (not needed for Stars)
-            "EUR", // Currency
+            "XTR", // Currency
             [{ label: "Bet", amount: amount }], // Prices
             { start_parameter: "bet_game" } // Optional parameters
         );
