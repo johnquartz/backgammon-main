@@ -37,12 +37,12 @@ const config = {
     opponent: null
 };
 
-// Initialize function with more logging
+// Initialize function with regular alerts
 function initializeApp() {
-    window.Telegram.WebApp.showAlert('App initializing...');
+    alert('App initializing...'); // Added test alert
     
     if (!window.Telegram?.WebApp) {
-        window.Telegram.WebApp.showAlert('Telegram WebApp not available');
+        console.error('Telegram WebApp not available');
         return;
     }
 
@@ -50,26 +50,31 @@ function initializeApp() {
     const appElement = document.getElementById('app');
     if (appElement) {
         appElement.style.display = 'block';
-        window.Telegram.WebApp.showAlert('App element found and displayed');
-    } else {
-        window.Telegram.WebApp.showAlert('App element not found!');
+        alert('App element found and displayed'); // Added test alert
     }
 
-    // Setup click handlers with logging
+    // Setup click handlers with test endpoint
     const buttons = document.querySelectorAll('.bet-button');
-    window.Telegram.WebApp.showAlert(`Found ${buttons.length} bet buttons`);
-    
     buttons.forEach(button => {
-        button.addEventListener('click', () => {
-            const amount = parseInt(button.dataset.amount);
-            window.Telegram.WebApp.showAlert(`Button clicked: ${amount} Stars`);
-            handleBetClick(amount);
+        button.addEventListener('click', async () => {
+            alert('Button clicked!'); // Added test alert
+            
+            try {
+                // Test the server connection
+                const testResponse = await fetch(`${API_URL}/test`);
+                const testData = await testResponse.json();
+                alert('Server test response: ' + JSON.stringify(testData));
+                
+                // If test succeeds, proceed with normal bet flow
+                const amount = parseInt(button.dataset.amount);
+                handleBetClick(amount);
+            } catch (error) {
+                alert('Error: ' + error); // Added test alert
+            }
         });
     });
 
-    // Expand the WebApp
     window.Telegram.WebApp.expand();
-    window.Telegram.WebApp.showAlert('Initialization complete');
 }
 
 // Verify DOM content loaded event
