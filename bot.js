@@ -254,6 +254,11 @@ app.use(cors({
     credentials: true
 }));
 
+// Add a root route
+app.get('/', (req, res) => {
+    res.send('Betgammon server is running!');
+});
+
 // Start the Express server
 const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

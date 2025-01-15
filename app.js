@@ -307,24 +307,23 @@ function showSearchingUI(amount) {
     `;
 }
 
+// Single click handler function
 async function handleBetClick(amount) {
     try {
-        // First show a test alert to verify the click handler works
-        window.Telegram.WebApp.showAlert(`Clicked ${amount} Stars`);
-        
+        if (!window.Telegram?.WebApp) {
+            console.error('Telegram WebApp not available');
+            return;
+        }
+
         const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
         
         if (confirmed) {
             const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
             
-            // Show another alert before the fetch
-            window.Telegram.WebApp.showAlert(`Sending request for ${amount} Stars...`);
-
             const response = await fetch(`${API_URL}/create-bet`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     userId: userId,
@@ -336,22 +335,24 @@ async function handleBetClick(amount) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const result = await response.json();
+            // Show payment UI while waiting for confirmation
+            showPaymentUI(amount);
             
-            // Show the result
-            window.Telegram.WebApp.showAlert(`Request completed: ${JSON.stringify(result)}`);
+            // Start checking for payment confirmation
+            startPaymentCheck(amount);
         }
     } catch (error) {
-        window.Telegram.WebApp.showAlert('Error: ' + error.message);
+        console.error('Error:', error);
+        window.Telegram?.WebApp?.showAlert('Error: ' + error.message);
     }
 }
 
-// Make sure the click handlers are properly set up
+// Single event listener setup
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {
         button.addEventListener('click', () => {
-            const amount = parseInt(button.getAttribute('data-amount'));
+            const amount = parseInt(button.dataset.amount);
             handleBetClick(amount);
         });
     });
