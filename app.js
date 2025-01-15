@@ -318,20 +318,16 @@ function showSearchingUI(amount) {
 // Single click handler function
 async function handleBetClick(amount) {
     try {
-        alert('About to send bet request...'); // Debug alert
+        const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
         
+        // Single confirmation dialog
         const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
         
         if (confirmed) {
-            const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
-            alert(`Sending request to ${API_URL}/create-bet for user ${userId}`); // Debug alert
-
             const response = await fetch(`${API_URL}/create-bet`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Origin': 'https://johnquartz.github.io'  // Add origin header
                 },
                 body: JSON.stringify({
                     userId: userId,
@@ -339,18 +335,19 @@ async function handleBetClick(amount) {
                 })
             });
 
-            alert(`Response status: ${response.status}`); // Debug alert
-
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const result = await response.json();
-            alert(`Request completed: ${JSON.stringify(result)}`); // Debug alert
+            console.log('Bet creation result:', result);
+            
+            // Show payment UI
+            showPaymentUI(amount);
         }
     } catch (error) {
-        alert(`Error in handleBetClick: ${error.message}`); // Debug alert
         console.error('Error:', error);
+        window.Telegram.WebApp.showAlert('Failed to create bet: ' + error.message);
     }
 }
 
