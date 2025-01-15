@@ -144,6 +144,18 @@ bot.on('callback_query', async (query) => {
             message_id: query.message.message_id
         });
     }
+    else if (data.startsWith('confirm_bet_')) {
+        const amount = parseInt(data.split('_')[2]);
+        try {
+            await createStarTransaction(query.from.id, amount);
+            await bot.deleteMessage(query.message.chat.id, query.message.message_id);
+        } catch (error) {
+            await bot.editMessageText('Error creating bet. Please try again.', {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id
+            });
+        }
+    }
 });
 
 // API Endpoints for WebApp
@@ -165,20 +177,6 @@ app.post('/create-bet', async (req, res) => {
         res.json({ success: false, error: error.message });
     }
 });
-
-// Add to callback_query handler
-if (data.startsWith('confirm_bet_')) {
-    const amount = parseInt(data.split('_')[2]);
-    try {
-        await createStarTransaction(query.from.id, amount);
-        await bot.deleteMessage(query.message.chat.id, query.message.message_id);
-    } catch (error) {
-        await bot.editMessageText('Error creating bet. Please try again.', {
-            chat_id: query.message.chat.id,
-            message_id: query.message.message_id
-        });
-    }
-}
 
 // Start the Express server
 const server = app.listen(PORT, () => {
