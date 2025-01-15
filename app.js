@@ -317,6 +317,10 @@ function showSearchingUI(amount) {
 
 // Single click handler function
 async function handleBetClick(amount) {
+    // Disable the button immediately to prevent multiple clicks
+    const buttons = document.querySelectorAll('.bet-button');
+    buttons.forEach(btn => btn.disabled = true);
+
     try {
         const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
         
@@ -338,7 +342,7 @@ async function handleBetClick(amount) {
         const result = await response.json();
         console.log('Bet creation result:', result);
         
-        // Show payment UI without any popups
+        // Show payment UI
         const bettingScreen = document.getElementById('betting-screen');
         const paymentScreen = document.getElementById('payment-screen');
         
@@ -348,15 +352,25 @@ async function handleBetClick(amount) {
         }
     } catch (error) {
         console.error('Error:', error);
+    } finally {
+        // Re-enable buttons after a short delay
+        setTimeout(() => {
+            buttons.forEach(btn => btn.disabled = false);
+        }, 2000); // 2 seconds delay
     }
 }
 
-// Single event listener setup
+// Remove any duplicate event listeners before adding new ones
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {
-        button.addEventListener('click', () => {
-            const amount = parseInt(button.dataset.amount);
+        // Remove any existing listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        // Add single click listener
+        newButton.addEventListener('click', () => {
+            const amount = parseInt(newButton.dataset.amount);
             handleBetClick(amount);
         });
     });
