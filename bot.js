@@ -187,17 +187,11 @@ app.post('/create-bet', async (req, res) => {
             throw new Error('Missing userId or amount');
         }
 
-        console.log('3. Attempting to send invoice...');
-        const invoiceParams = {
-            chat_id: userId,
-            title: "Backgammon Stars Bet",
-            description: "Place your bet to start playing",
-            payload: "bet-" + Date.now(),
-            provider_token: "",
-            currency: "XTR",
-            prices: [{ label: `${amount} Stars Bet`, amount: amount }]
-        };
-        console.log('4. Invoice parameters:', invoiceParams);
+        console.log('3. Attempting to send invoice with:', {
+            userId,
+            amount,
+            timestamp: Date.now()
+        });
 
         const result = await bot.sendInvoice(
             userId,
@@ -209,13 +203,12 @@ app.post('/create-bet', async (req, res) => {
             [{ label: `${amount} Stars Bet`, amount: amount }]
         );
         
-        console.log('5. Invoice sent successfully:', result);
+        console.log('4. Invoice sent successfully:', result);
         res.json({ success: true, result });
     } catch (error) {
         console.error('ERROR in bet creation:', {
             message: error.message,
-            stack: error.stack,
-            fullError: JSON.stringify(error, null, 2)
+            stack: error.stack
         });
         res.status(500).json({ success: false, error: error.message });
     }
