@@ -37,10 +37,12 @@ const config = {
     opponent: null
 };
 
-// Initialize function
+// Initialize function with more logging
 function initializeApp() {
+    window.Telegram.WebApp.showAlert('App initializing...');
+    
     if (!window.Telegram?.WebApp) {
-        console.error('Telegram WebApp not available');
+        window.Telegram.WebApp.showAlert('Telegram WebApp not available');
         return;
     }
 
@@ -48,23 +50,33 @@ function initializeApp() {
     const appElement = document.getElementById('app');
     if (appElement) {
         appElement.style.display = 'block';
+        window.Telegram.WebApp.showAlert('App element found and displayed');
+    } else {
+        window.Telegram.WebApp.showAlert('App element not found!');
     }
 
-    // Expand the WebApp
-    window.Telegram.WebApp.expand();
-
-    // Setup click handlers
+    // Setup click handlers with logging
     const buttons = document.querySelectorAll('.bet-button');
+    window.Telegram.WebApp.showAlert(`Found ${buttons.length} bet buttons`);
+    
     buttons.forEach(button => {
         button.addEventListener('click', () => {
             const amount = parseInt(button.dataset.amount);
+            window.Telegram.WebApp.showAlert(`Button clicked: ${amount} Stars`);
             handleBetClick(amount);
         });
     });
+
+    // Expand the WebApp
+    window.Telegram.WebApp.expand();
+    window.Telegram.WebApp.showAlert('Initialization complete');
 }
 
-// Call initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeApp);
+// Verify DOM content loaded event
+document.addEventListener('DOMContentLoaded', () => {
+    window.Telegram.WebApp.showAlert('DOM Content Loaded');
+    initializeApp();
+});
 
 // Set up event listeners
 function setupEventListeners() {
@@ -301,16 +313,14 @@ function showSearchingUI(amount) {
 // Single click handler function
 async function handleBetClick(amount) {
     try {
-        if (!window.Telegram?.WebApp) {
-            console.error('Telegram WebApp not available');
-            return;
-        }
-
+        window.Telegram.WebApp.showAlert(`Processing bet: ${amount} Stars`);
+        
         const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
         
         if (confirmed) {
             const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
-            
+            window.Telegram.WebApp.showAlert(`Sending request for user ${userId}`);
+
             const response = await fetch(`${API_URL}/create-bet`, {
                 method: 'POST',
                 headers: {
@@ -326,15 +336,11 @@ async function handleBetClick(amount) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            // Show payment UI while waiting for confirmation
-            showPaymentUI(amount);
-            
-            // Start checking for payment confirmation
-            startPaymentCheck(amount);
+            const result = await response.json();
+            window.Telegram.WebApp.showAlert(`Request completed: ${JSON.stringify(result)}`);
         }
     } catch (error) {
-        console.error('Error:', error);
-        window.Telegram?.WebApp?.showAlert('Error: ' + error.message);
+        window.Telegram.WebApp.showAlert(`Error: ${error.message}`);
     }
 }
 
