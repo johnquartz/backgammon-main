@@ -1,3 +1,6 @@
+// Add this at the top of app.js
+const API_URL = 'https://betgammon.onrender.com';  // Your Render URL
+
 // Debug logging
 console.log('Starting app initialization...');
 console.log('Firebase config:', window.firebaseConfig);
@@ -34,8 +37,8 @@ const config = {
     opponent: null
 };
 
-// Add this at the top of app.js
-const API_URL = 'https://betgammon.onrender.com';  // Your Render URL
+
+
 
 // Initialize the application
 async function initializeApp() {
@@ -303,3 +306,49 @@ function showSearchingUI(amount) {
         <button onclick="cancelSearch(${amount})">Cancel Search</button>
     `;
 }
+
+async function handleBetClick(amount) {
+    try {
+        console.log('Bet button clicked:', amount);
+        
+        const confirmed = await window.Telegram.WebApp.showConfirm(`Ready to place a ${amount} Stars bet?`);
+        
+        if (confirmed) {
+            const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+            console.log('Sending request to:', `${API_URL}/create-bet`);
+            console.log('With data:', { userId, amount });
+
+            const response = await fetch(`${API_URL}/create-bet`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: userId,
+                    amount: amount
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('Response:', result);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        window.Telegram.WebApp.showAlert('Error: ' + error.message);
+    }
+}
+
+// Make sure the click handlers are properly set up
+document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.bet-button');
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            const amount = parseInt(button.getAttribute('data-amount'));
+            handleBetClick(amount);
+        });
+    });
+});

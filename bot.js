@@ -241,6 +241,19 @@ app.get('/check-payment-status/:userId/:amount', async (req, res) => {
     }
 });
 
+// Add a simple test endpoint
+app.get('/test', (req, res) => {
+    console.log('Test endpoint hit');
+    res.json({ status: 'ok' });
+});
+
+// Make sure CORS is properly configured
+app.use(cors({
+    origin: ['https://johnquartz.github.io', 'https://t.me'],
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
+
 // Start the Express server
 const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
