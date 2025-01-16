@@ -107,17 +107,21 @@ bot.on('successful_payment', async (msg) => {
         const players = snapshot.val();
         
         if (players && Object.keys(players).length >= 2) {
+            console.log('Found enough players:', players);
+            
             // Get the two oldest players in the pool
             const sortedPlayers = Object.entries(players)
                 .sort((a, b) => a[1].timestamp - b[1].timestamp)
                 .slice(0, 2);
             
             const [player1, player2] = sortedPlayers;
+            console.log('Matched players:', player1[1].id, player2[1].id);
             
             // Create a new game room
             const gameId = `game_${Date.now()}`;
             const gameRef = db.ref(`games/${gameId}`);
             
+            // Create game room first
             await gameRef.set({
                 player1: player1[1].id,
                 player2: player2[1].id,
@@ -125,25 +129,26 @@ bot.on('successful_payment', async (msg) => {
                 status: 'starting',
                 timestamp: admin.database.ServerValue.TIMESTAMP
             });
+            console.log('Created game room:', gameId);
 
-            // Remove matched players from pool
-            await matchingRef.child(player1[0]).remove();
-            await matchingRef.child(player2[0]).remove();
+            // Remove players from matching pool
+            await Promise.all([
+                matchingRef.child(player1[0]).remove(),
+                matchingRef.child(player2[0]).remove()
+            ]);
+            console.log('Removed players from matching pool');
 
             // Notify both players
-            const gameStartData = {
-                event: 'game_start'
-            };
-
-            await bot.sendMessage(player1[1].id, 'Game starting...', {
-                web_app_message_id: msg.message_id
-            });
-
-            await bot.sendMessage(player2[1].id, 'Game starting...', {
-                web_app_message_id: msg.message_id
-            });
-
-            console.log(`Matched players ${player1[1].id} and ${player2[1].id} in game ${gameId}`);
+            await Promise.all([
+                bot.sendMessage(player1[1].id, 'Game starting...', {
+                    web_app_message_id: msg.message_id
+                }),
+                bot.sendMessage(player2[1].id, 'Game starting...', {
+                    web_app_message_id: msg.message_id
+                })
+            ]);
+            
+            console.log('Game setup complete:', gameId);
         } else {
             await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...', {
                 web_app_message_id: msg.message_id
@@ -151,8 +156,8 @@ bot.on('successful_payment', async (msg) => {
         }
 
     } catch (error) {
-        console.error('Error handling successful payment:', error);
-        await bot.sendMessage(userId, 'Error processing payment. Please try again.');
+        console.error('Error in matching process:', error);
+        await bot.sendMessage(userId, 'Error processing match. Please try again.');
     }
 });
 
