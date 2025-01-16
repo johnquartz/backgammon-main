@@ -363,7 +363,6 @@ async function handleBetClick(amount) {
     }
 }
 
-// Function to be called when payment is confirmed (will be triggered by webhook/polling)
 function showMatchingScreen(amount) {
     const paymentScreen = document.getElementById('payment-screen');
     const matchingScreen = document.getElementById('matching-screen');
@@ -371,7 +370,6 @@ function showMatchingScreen(amount) {
     if (paymentScreen && matchingScreen) {
         paymentScreen.style.display = 'none';
         
-        // Update bet amount in matching screen
         const betAmountElement = document.getElementById('matching-bet-amount');
         if (betAmountElement) {
             betAmountElement.textContent = amount;
@@ -381,23 +379,18 @@ function showMatchingScreen(amount) {
     }
 }
 
-// Remove any duplicate event listeners before adding new ones
+// Initialize WebApp
 document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {
-        // Remove any existing listeners
-        const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
-        
-        // Add single click listener
-        newButton.addEventListener('click', () => {
-            const amount = parseInt(newButton.dataset.amount);
+        button.addEventListener('click', () => {
+            const amount = parseInt(button.dataset.amount);
             handleBetClick(amount);
         });
     });
 });
 
-// Add at the top with your other initialization code
+// Handle payment success event
 window.Telegram.WebApp.onEvent('mainButtonClicked', () => {
     const eventData = window.Telegram.WebApp.initDataUnsafe?.query_id;
     if (eventData) {
