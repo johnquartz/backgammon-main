@@ -388,8 +388,39 @@ function showGameScreen() {
     }
 }
 
-// Initialize WebApp
+// Initialize WebApp with debug logging
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('WebApp initialized');
+    
+    // Log all possible events
+    window.Telegram.WebApp.onEvent('message', (message) => {
+        console.log('Received message:', message);
+    });
+    
+    window.Telegram.WebApp.onEvent('viewportChanged', () => {
+        console.log('Viewport changed');
+    });
+    
+    window.Telegram.WebApp.onEvent('themeChanged', () => {
+        console.log('Theme changed');
+    });
+    
+    window.Telegram.WebApp.onEvent('mainButtonClicked', () => {
+        console.log('Main button clicked');
+    });
+
+    // Add a global function that can be called from anywhere
+    window.updateGameState = function(state) {
+        console.log('updateGameState called with:', state);
+        if (state === 'matching') {
+            document.getElementById('betting-screen').style.display = 'none';
+            document.getElementById('matching-screen').style.display = 'block';
+        } else if (state === 'game') {
+            document.getElementById('matching-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+        }
+    };
+
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {
         button.addEventListener('click', () => {

@@ -169,6 +169,34 @@ bot.on('successful_payment', async (msg) => {
             });
         }
 
+        // After successful payment
+        try {
+            console.log('Attempting to notify WebApp about payment...');
+            
+            // Try method 1: Direct function call
+            await bot.sendMessage(userId, '<script>updateGameState("matching");</script>', {
+                parse_mode: 'HTML'
+            });
+            
+            // Try method 2: WebApp data
+            await bot.sendMessage(userId, 'Payment received', {
+                web_app: {
+                    data: JSON.stringify({ state: 'matching' })
+                }
+            });
+            
+            // Try method 3: Query params
+            await bot.sendMessage(userId, 'Processing payment...', {
+                web_app: {
+                    url: `https://johnquartz.github.io/betgammon/?state=matching`
+                }
+            });
+
+            console.log('Notification attempts completed');
+        } catch (error) {
+            console.error('Error notifying WebApp:', error);
+        }
+
     } catch (error) {
         console.error('Error in matching process:', error);
         await bot.sendMessage(userId, 'Error processing match. Please try again.');
