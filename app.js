@@ -421,6 +421,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Listen for WebApp data
+    window.Telegram.WebApp.onEvent('web_app_data_send', function(data) {
+        if (data === 'PAYMENT_SUCCESS') {
+            document.getElementById('betting-screen').style.display = 'none';
+            document.getElementById('matching-screen').style.display = 'block';
+        } else if (data === 'GAME_START') {
+            document.getElementById('matching-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+        }
+    });
+
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {
         button.addEventListener('click', () => {

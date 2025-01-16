@@ -170,32 +170,43 @@ bot.on('successful_payment', async (msg) => {
         }
 
         // After successful payment
-        try {
-            console.log('Attempting to notify WebApp about payment...');
-            
-            // Try method 1: Direct function call
-            await bot.sendMessage(userId, '<script>updateGameState("matching");</script>', {
-                parse_mode: 'HTML'
-            });
-            
-            // Try method 2: WebApp data
-            await bot.sendMessage(userId, 'Payment received', {
-                web_app: {
-                    data: JSON.stringify({ state: 'matching' })
-                }
-            });
-            
-            // Try method 3: Query params
-            await bot.sendMessage(userId, 'Processing payment...', {
-                web_app: {
-                    url: `https://johnquartz.github.io/betgammon/?state=matching`
-                }
-            });
+        await bot.answerWebAppQuery(msg.web_app_query_id, {
+            type: 'article',
+            id: String(Date.now()),
+            title: 'Payment Success',
+            input_message_content: {
+                message_text: 'Payment successful! Looking for opponent...'
+            },
+            web_app_data: {
+                data: 'PAYMENT_SUCCESS'
+            }
+        });
 
-            console.log('Notification attempts completed');
-        } catch (error) {
-            console.error('Error notifying WebApp:', error);
-        }
+        // When game starts
+        await Promise.all([
+            bot.answerWebAppQuery(player1[1].web_app_query_id, {
+                type: 'article',
+                id: String(Date.now()),
+                title: 'Game Starting',
+                input_message_content: {
+                    message_text: 'Game starting...'
+                },
+                web_app_data: {
+                    data: 'GAME_START'
+                }
+            }),
+            bot.answerWebAppQuery(player2[1].web_app_query_id, {
+                type: 'article',
+                id: String(Date.now()),
+                title: 'Game Starting',
+                input_message_content: {
+                    message_text: 'Game starting...'
+                },
+                web_app_data: {
+                    data: 'GAME_START'
+                }
+            })
+        ]);
 
     } catch (error) {
         console.error('Error in matching process:', error);
