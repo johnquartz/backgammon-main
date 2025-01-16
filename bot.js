@@ -159,8 +159,13 @@ bot.on('successful_payment', async (msg) => {
             
             console.log('Game setup complete:', gameId);
         } else {
-            await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...', {
-                web_app: { start_param: 'matching' }
+            await bot.sendMessage(userId, 'Payment successful!', {
+                web_app: {
+                    main_button: {
+                        text: `MATCHING_${amount}`,
+                        is_visible: true
+                    }
+                }
             });
         }
 

@@ -399,31 +399,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Handle state changes using postEvent
-if (window.TelegramWebviewProxy) {
-    window.TelegramWebviewProxy.postEvent('web_app_ready', {});
-    
-    window.TelegramWebviewProxy.onEvent = function(eventType, eventData) {
-        console.log('Received event:', eventType, eventData);
-        
-        if (eventType === 'payment_success') {
-            showMatchingScreen(eventData.amount);
-        } else if (eventType === 'game_start') {
-            showGameScreen();
-        }
-    };
-} else {
-    // Fallback for web version
-    window.addEventListener('message', function(event) {
-        try {
-            const data = JSON.parse(event.data);
-            if (data.eventType === 'payment_success') {
-                showMatchingScreen(data.eventData.amount);
-            } else if (data.eventType === 'game_start') {
-                showGameScreen();
-            }
-        } catch (e) {
-            console.error('Error parsing event:', e);
-        }
-    });
-}
+// Listen for state changes via MainButton text
+window.Telegram.WebApp.MainButton.onClick(() => {
+    const buttonText = window.Telegram.WebApp.MainButton.text;
+    if (buttonText.includes('MATCHING')) {
+        const amount = buttonText.match(/\d+/)[0];
+        showMatchingScreen(parseInt(amount));
+    } else if (buttonText === 'GAME_STARTED') {
+        showGameScreen();
+    }
+});
