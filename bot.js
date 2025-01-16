@@ -88,36 +88,56 @@ bot.on('pre_checkout_query', (query) => {
 
 // Handle successful payment
 bot.on('successful_payment', async (msg) => {
-    console.log('Payment successful:', msg);
     try {
         const userId = msg.from.id;
         const amount = msg.successful_payment.total_amount;
 
+        console.log(`Player ${userId} paid ${amount} Stars, adding to matching pool`);
+
         // Add to matching pool
-        const matchingRef = db.ref(`matching/${amount}/${userId}`);
-        await matchingRef.set({
+        const matchingRef = db.ref(`matching/${amount}`);
+        await matchingRef.child(userId).set({
             id: userId,
             timestamp: admin.database.ServerValue.TIMESTAMP,
             paymentConfirmed: true
         });
 
-        // Send message to user
-        await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...');
+        // Check for opponent
+        const snapshot = await matchingRef.once('value');
+        const players = snapshot.val();
+        
+        if (players && Object.keys(players).length >= 2) {
+            // Get the two oldest players in the pool
+            const sortedPlayers = Object.entries(players)
+                .sort((a, b) => a[1].timestamp - b[1].timestamp)
+                .slice(0, 2);
+            
+            const [player1, player2] = sortedPlayers;
+            
+            // Create a new game room
+            const gameId = `game_${Date.now()}`;
+            const gameRef = db.ref(`games/${gameId}`);
+            
+            await gameRef.set({
+                player1: player1[1].id,
+                player2: player2[1].id,
+                betAmount: amount,
+                status: 'starting',
+                timestamp: admin.database.ServerValue.TIMESTAMP
+            });
 
-        // Notify the WebApp about successful payment
-        const webAppPaymentData = {
-            event: 'payment_success',
-            userId: userId,
-            amount: amount
-        };
+            // Remove matched players from pool
+            await matchingRef.child(player1[0]).remove();
+            await matchingRef.child(player2[0]).remove();
 
-        // Send postEvent to WebApp
-        await bot.sendMessage(userId, 'Updating game status...', {
-            web_app: {
-                query_id: msg.web_app_query_id,
-                data: JSON.stringify(webAppPaymentData)
-            }
-        });
+            // Notify both players
+            await bot.sendMessage(player1[1].id, 'Opponent found! Game starting...');
+            await bot.sendMessage(player2[1].id, 'Opponent found! Game starting...');
+
+            console.log(`Matched players ${player1[1].id} and ${player2[1].id} in game ${gameId}`);
+        } else {
+            await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...');
+        }
 
     } catch (error) {
         console.error('Error handling successful payment:', error);
