@@ -413,3 +413,24 @@ function showGameScreen() {
         gameScreen.style.display = 'block';
     }
 }
+
+// Add these simple event listeners
+window.Telegram.WebApp.onEvent('message', function(message) {
+    console.log('Received message:', message);
+    
+    if (message.includes('Payment successful')) {
+        const matchingScreen = document.getElementById('matching-screen');
+        const bettingScreen = document.getElementById('betting-screen');
+        
+        bettingScreen.style.display = 'none';
+        matchingScreen.style.display = 'block';
+    }
+    
+    if (message.includes('Game starting')) {
+        const matchingScreen = document.getElementById('matching-screen');
+        const gameScreen = document.getElementById('game-screen');
+        
+        matchingScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+    }
+});

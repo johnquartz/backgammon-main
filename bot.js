@@ -136,22 +136,18 @@ bot.on('successful_payment', async (msg) => {
             };
 
             await bot.sendMessage(player1[1].id, 'Game starting...', {
-                web_app: {
-                    query_id: msg.web_app_query_id,
-                    data: JSON.stringify(gameStartData)
-                }
+                web_app_message_id: msg.message_id
             });
 
             await bot.sendMessage(player2[1].id, 'Game starting...', {
-                web_app: {
-                    query_id: msg.web_app_query_id,
-                    data: JSON.stringify(gameStartData)
-                }
+                web_app_message_id: msg.message_id
             });
 
             console.log(`Matched players ${player1[1].id} and ${player2[1].id} in game ${gameId}`);
         } else {
-            await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...');
+            await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...', {
+                web_app_message_id: msg.message_id
+            });
         }
 
     } catch (error) {
