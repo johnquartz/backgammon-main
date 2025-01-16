@@ -319,7 +319,6 @@ function showSearchingUI(amount) {
 let isProcessing = false;
 
 async function handleBetClick(amount) {
-    // If already processing a bet, ignore new clicks
     if (isProcessing) return;
     
     try {
@@ -341,21 +340,25 @@ async function handleBetClick(amount) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const result = await response.json();
-        console.log('Bet creation result:', result);
-        
-        // Show payment UI
+        // Show matching screen
         const bettingScreen = document.getElementById('betting-screen');
-        const paymentScreen = document.getElementById('payment-screen');
+        const matchingScreen = document.getElementById('matching-screen');
         
-        if (bettingScreen && paymentScreen) {
+        if (bettingScreen && matchingScreen) {
+            // Update bet amount in matching screen
+            const betAmountElement = document.getElementById('matching-bet-amount');
+            if (betAmountElement) {
+                betAmountElement.textContent = amount;
+            }
+            
+            // Show matching screen
             bettingScreen.style.display = 'none';
-            paymentScreen.style.display = 'block';
+            matchingScreen.style.display = 'block';
         }
+
     } catch (error) {
         console.error('Error:', error);
     } finally {
-        // Reset processing flag after a short delay
         setTimeout(() => {
             isProcessing = false;
         }, 2000);
