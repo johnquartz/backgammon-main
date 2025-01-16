@@ -388,49 +388,60 @@ function showGameScreen() {
     }
 }
 
-// Initialize WebApp with debug logging
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('WebApp initialized');
-    
-    // Log all possible events
-    window.Telegram.WebApp.onEvent('message', (message) => {
-        console.log('Received message:', message);
-    });
-    
-    window.Telegram.WebApp.onEvent('viewportChanged', () => {
-        console.log('Viewport changed');
-    });
-    
-    window.Telegram.WebApp.onEvent('themeChanged', () => {
-        console.log('Theme changed');
-    });
-    
-    window.Telegram.WebApp.onEvent('mainButtonClicked', () => {
-        console.log('Main button clicked');
-    });
+let ws;
 
-    // Add a global function that can be called from anywhere
-    window.updateGameState = function(state) {
-        console.log('updateGameState called with:', state);
-        if (state === 'matching') {
-            document.getElementById('betting-screen').style.display = 'none';
-            document.getElementById('matching-screen').style.display = 'block';
-        } else if (state === 'game') {
-            document.getElementById('matching-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
+function connectWebSocket() {
+    const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+    ws = new WebSocket('wss://betgammon.onrender.com');
+
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+        // Register client with userId
+        ws.send(JSON.stringify({
+            type: 'register',
+            userId: userId
+        }));
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('Received WebSocket message:', data);
+
+            switch (data.type) {
+                case 'payment_success':
+                    document.getElementById('betting-screen').style.display = 'none';
+                    document.getElementById('matching-screen').style.display = 'block';
+                    break;
+
+                case 'game_start':
+                    document.getElementById('matching-screen').style.display = 'none';
+                    document.getElementById('game-screen').style.display = 'block';
+                    break;
+
+                case 'error':
+                    console.error('Server error:', data.message);
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
         }
     };
 
-    // Listen for WebApp data
-    window.Telegram.WebApp.onEvent('web_app_data_send', function(data) {
-        if (data === 'PAYMENT_SUCCESS') {
-            document.getElementById('betting-screen').style.display = 'none';
-            document.getElementById('matching-screen').style.display = 'block';
-        } else if (data === 'GAME_START') {
-            document.getElementById('matching-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
-        }
-    });
+    ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        // Attempt to reconnect after a delay
+        setTimeout(connectWebSocket, 3000);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
+
+// Initialize WebApp and WebSocket connection
+document.addEventListener('DOMContentLoaded', () => {
+    connectWebSocket();
 
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {

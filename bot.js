@@ -3,6 +3,8 @@ const TelegramBot = require('node-telegram-bot-api');
 const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
+const WebSocket = require('ws');
+const http = require('http');
 
 // Initialize Firebase Admin
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -14,6 +16,8 @@ admin.initializeApp({
 
 const db = admin.database();
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 // Enable CORS for GitHub Pages
 app.use(cors({
@@ -32,6 +36,38 @@ const bot = new TelegramBot(process.env.BOT_TOKEN);
 // Set webhook
 const url = 'https://betgammon.onrender.com';
 bot.setWebHook(`${url}/webhook/${process.env.BOT_TOKEN}`);
+
+// Store active connections
+const clients = new Map();
+
+// WebSocket connection handling
+wss.on('connection', (ws, req) => {
+    console.log('New WebSocket connection');
+
+    // Handle client registration with their userId
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+            if (data.type === 'register') {
+                clients.set(data.userId, ws);
+                console.log(`Client registered: ${data.userId}`);
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
+        }
+    });
+
+    ws.on('close', () => {
+        // Remove client on disconnect
+        for (const [userId, client] of clients.entries()) {
+            if (client === ws) {
+                clients.delete(userId);
+                console.log(`Client disconnected: ${userId}`);
+                break;
+            }
+        }
+    });
+});
 
 // Handle star transactions
 async function createStarTransaction(userId, amount) {
@@ -102,26 +138,30 @@ bot.on('successful_payment', async (msg) => {
             paymentConfirmed: true
         });
 
+        // Notify client about payment success
+        const ws = clients.get(userId);
+        if (ws) {
+            ws.send(JSON.stringify({
+                type: 'payment_success',
+                amount: amount
+            }));
+        }
+
         // Check for opponent
         const snapshot = await matchingRef.once('value');
         const players = snapshot.val();
         
         if (players && Object.keys(players).length >= 2) {
-            console.log('Found enough players:', players);
-            
-            // Get the two oldest players in the pool
             const sortedPlayers = Object.entries(players)
                 .sort((a, b) => a[1].timestamp - b[1].timestamp)
                 .slice(0, 2);
             
             const [player1, player2] = sortedPlayers;
-            console.log('Matched players:', player1[1].id, player2[1].id);
             
-            // Create a new game room
+            // Create game room
             const gameId = `game_${Date.now()}`;
             const gameRef = db.ref(`games/${gameId}`);
             
-            // Create game room first
             await gameRef.set({
                 player1: player1[1].id,
                 player2: player2[1].id,
@@ -129,88 +169,34 @@ bot.on('successful_payment', async (msg) => {
                 status: 'starting',
                 timestamp: admin.database.ServerValue.TIMESTAMP
             });
-            console.log('Created game room:', gameId);
 
-            // Remove players from matching pool
+            // Remove matched players from pool
             await Promise.all([
                 matchingRef.child(player1[0]).remove(),
                 matchingRef.child(player2[0]).remove()
             ]);
-            console.log('Removed players from matching pool');
 
-            // Notify both players
-            const paymentEvent = {
-                eventType: 'payment_success',
-                eventData: { amount: amount }
-            };
-            await Promise.all([
-                bot.sendMessage(player1[1].id, JSON.stringify(paymentEvent)),
-                bot.sendMessage(player2[1].id, JSON.stringify(paymentEvent))
-            ]);
-            
-            const gameStartEvent = {
-                eventType: 'game_start',
-                eventData: {}
-            };
-            await Promise.all([
-                bot.sendMessage(player1[1].id, JSON.stringify(gameStartEvent)),
-                bot.sendMessage(player2[1].id, JSON.stringify(gameStartEvent))
-            ]);
-            
-            console.log('Game setup complete:', gameId);
-        } else {
-            await bot.sendMessage(userId, 'Payment successful!', {
-                web_app: {
-                    main_button: {
-                        text: `MATCHING_${amount}`,
-                        is_visible: true
-                    }
+            // Notify both players about game start
+            [player1[1].id, player2[1].id].forEach(playerId => {
+                const ws = clients.get(playerId);
+                if (ws) {
+                    ws.send(JSON.stringify({
+                        type: 'game_start',
+                        gameId: gameId
+                    }));
                 }
             });
         }
 
-        // After successful payment
-        await bot.answerWebAppQuery(msg.web_app_query_id, {
-            type: 'article',
-            id: String(Date.now()),
-            title: 'Payment Success',
-            input_message_content: {
-                message_text: 'Payment successful! Looking for opponent...'
-            },
-            web_app_data: {
-                data: 'PAYMENT_SUCCESS'
-            }
-        });
-
-        // When game starts
-        await Promise.all([
-            bot.answerWebAppQuery(player1[1].web_app_query_id, {
-                type: 'article',
-                id: String(Date.now()),
-                title: 'Game Starting',
-                input_message_content: {
-                    message_text: 'Game starting...'
-                },
-                web_app_data: {
-                    data: 'GAME_START'
-                }
-            }),
-            bot.answerWebAppQuery(player2[1].web_app_query_id, {
-                type: 'article',
-                id: String(Date.now()),
-                title: 'Game Starting',
-                input_message_content: {
-                    message_text: 'Game starting...'
-                },
-                web_app_data: {
-                    data: 'GAME_START'
-                }
-            })
-        ]);
-
     } catch (error) {
         console.error('Error in matching process:', error);
-        await bot.sendMessage(userId, 'Error processing match. Please try again.');
+        const ws = clients.get(userId);
+        if (ws) {
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Error processing match'
+            }));
+        }
     }
 });
 
@@ -353,10 +339,7 @@ app.get('/', (req, res) => {
     res.send('Betgammon server is running!');
 });
 
-// Start the Express server
-const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-}).on('error', (err) => {
-    console.error('Server error:', err);
-    process.exit(1);
+// Start the server
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 }); 
