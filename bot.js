@@ -141,17 +141,17 @@ bot.on('successful_payment', async (msg) => {
             // Notify both players
             await Promise.all([
                 bot.sendMessage(player1[1].id, 'Game starting...', {
-                    web_app_message_id: msg.message_id
+                    web_app: { start_param: 'game_started' }
                 }),
                 bot.sendMessage(player2[1].id, 'Game starting...', {
-                    web_app_message_id: msg.message_id
+                    web_app: { start_param: 'game_started' }
                 })
             ]);
             
             console.log('Game setup complete:', gameId);
         } else {
             await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...', {
-                web_app_message_id: msg.message_id
+                web_app: { start_param: 'matching' }
             });
         }
 

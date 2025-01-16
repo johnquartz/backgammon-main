@@ -363,30 +363,53 @@ async function handleBetClick(amount) {
     }
 }
 
-function showMatchingScreen(amount) {
-    const paymentScreen = document.getElementById('payment-screen');
+function showMatchingScreen() {
+    const bettingScreen = document.getElementById('betting-screen');
     const matchingScreen = document.getElementById('matching-screen');
     
-    if (paymentScreen && matchingScreen) {
-        paymentScreen.style.display = 'none';
-        
-        const betAmountElement = document.getElementById('matching-bet-amount');
-        if (betAmountElement) {
-            betAmountElement.textContent = amount;
-        }
-        
+    if (bettingScreen && matchingScreen) {
+        bettingScreen.style.display = 'none';
         matchingScreen.style.display = 'block';
+        
+        // Enable back button
+        window.Telegram.WebApp.BackButton.show();
+    }
+}
+
+function showGameScreen() {
+    const matchingScreen = document.getElementById('matching-screen');
+    const gameScreen = document.getElementById('game-screen');
+    
+    if (matchingScreen && gameScreen) {
+        matchingScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+        
+        // Disable back button during game
+        window.Telegram.WebApp.BackButton.hide();
     }
 }
 
 // Initialize WebApp
 document.addEventListener('DOMContentLoaded', () => {
+    // Hide back button initially
+    window.Telegram.WebApp.BackButton.hide();
+    
     const buttons = document.querySelectorAll('.bet-button');
     buttons.forEach(button => {
         button.addEventListener('click', () => {
             const amount = parseInt(button.dataset.amount);
             handleBetClick(amount);
         });
+    });
+    
+    // Listen for state changes from bot
+    window.Telegram.WebApp.onEvent('viewportChanged', () => {
+        const state = window.Telegram.WebApp.initDataUnsafe?.start_param;
+        if (state === 'matching') {
+            showMatchingScreen();
+        } else if (state === 'game_started') {
+            showGameScreen();
+        }
     });
 });
 
@@ -400,37 +423,5 @@ window.Telegram.WebApp.onEvent('mainButtonClicked', () => {
         } else if (data.event === 'game_start') {
             showGameScreen();
         }
-    }
-});
-
-// Add this function to show game screen
-function showGameScreen() {
-    const matchingScreen = document.getElementById('matching-screen');
-    const gameScreen = document.getElementById('game-screen');
-    
-    if (matchingScreen && gameScreen) {
-        matchingScreen.style.display = 'none';
-        gameScreen.style.display = 'block';
-    }
-}
-
-// Add these simple event listeners
-window.Telegram.WebApp.onEvent('message', function(message) {
-    console.log('Received message:', message);
-    
-    if (message.includes('Payment successful')) {
-        const matchingScreen = document.getElementById('matching-screen');
-        const bettingScreen = document.getElementById('betting-screen');
-        
-        bettingScreen.style.display = 'none';
-        matchingScreen.style.display = 'block';
-    }
-    
-    if (message.includes('Game starting')) {
-        const matchingScreen = document.getElementById('matching-screen');
-        const gameScreen = document.getElementById('game-screen');
-        
-        matchingScreen.style.display = 'none';
-        gameScreen.style.display = 'block';
     }
 });
