@@ -88,13 +88,12 @@ bot.on('pre_checkout_query', (query) => {
 
 // Handle successful payment
 bot.on('successful_payment', async (msg) => {
-    console.log('=== SUCCESSFUL PAYMENT ===');
-    console.log('Payment details:', msg.successful_payment);
+    console.log('Payment successful:', msg);
     try {
         const userId = msg.from.id;
         const amount = msg.successful_payment.total_amount;
 
-        console.log('Adding user to matching pool:', { userId, amount });
+        // Add to matching pool
         const matchingRef = db.ref(`matching/${amount}/${userId}`);
         await matchingRef.set({
             id: userId,
@@ -102,13 +101,26 @@ bot.on('successful_payment', async (msg) => {
             paymentConfirmed: true
         });
 
-        console.log('Successfully added to matching pool');
-        await bot.sendMessage(userId, 'Payment successful! Starting search for opponent...');
-    } catch (error) {
-        console.error('Error handling successful payment:', {
-            message: error.message,
-            stack: error.stack
+        // Send message to user
+        await bot.sendMessage(userId, 'Payment successful! Looking for an opponent...');
+
+        // Notify the WebApp about successful payment
+        const webAppPaymentData = {
+            event: 'payment_success',
+            userId: userId,
+            amount: amount
+        };
+
+        // Send postEvent to WebApp
+        await bot.sendMessage(userId, 'Updating game status...', {
+            web_app: {
+                query_id: msg.web_app_query_id,
+                data: JSON.stringify(webAppPaymentData)
+            }
         });
+
+    } catch (error) {
+        console.error('Error handling successful payment:', error);
         await bot.sendMessage(userId, 'Error processing payment. Please try again.');
     }
 });

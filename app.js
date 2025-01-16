@@ -340,20 +340,18 @@ async function handleBetClick(amount) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Show matching screen
+        // Show payment pending screen
         const bettingScreen = document.getElementById('betting-screen');
-        const matchingScreen = document.getElementById('matching-screen');
+        const paymentScreen = document.getElementById('payment-screen');
         
-        if (bettingScreen && matchingScreen) {
-            // Update bet amount in matching screen
-            const betAmountElement = document.getElementById('matching-bet-amount');
-            if (betAmountElement) {
-                betAmountElement.textContent = amount;
-            }
-            
-            // Show matching screen
+        if (bettingScreen && paymentScreen) {
             bettingScreen.style.display = 'none';
-            matchingScreen.style.display = 'block';
+            paymentScreen.innerHTML = `
+                <h2>Payment Required</h2>
+                <p>Please complete the payment of ${amount} Stars in the Telegram chat.</p>
+                <p>The game will start automatically once payment is confirmed.</p>
+            `;
+            paymentScreen.style.display = 'block';
         }
 
     } catch (error) {
@@ -362,6 +360,24 @@ async function handleBetClick(amount) {
         setTimeout(() => {
             isProcessing = false;
         }, 2000);
+    }
+}
+
+// Function to be called when payment is confirmed (will be triggered by webhook/polling)
+function showMatchingScreen(amount) {
+    const paymentScreen = document.getElementById('payment-screen');
+    const matchingScreen = document.getElementById('matching-screen');
+    
+    if (paymentScreen && matchingScreen) {
+        paymentScreen.style.display = 'none';
+        
+        // Update bet amount in matching screen
+        const betAmountElement = document.getElementById('matching-bet-amount');
+        if (betAmountElement) {
+            betAmountElement.textContent = amount;
+        }
+        
+        matchingScreen.style.display = 'block';
     }
 }
 
@@ -379,4 +395,15 @@ document.addEventListener('DOMContentLoaded', () => {
             handleBetClick(amount);
         });
     });
+});
+
+// Add at the top with your other initialization code
+window.Telegram.WebApp.onEvent('mainButtonClicked', () => {
+    const eventData = window.Telegram.WebApp.initDataUnsafe?.query_id;
+    if (eventData) {
+        const data = JSON.parse(eventData);
+        if (data.event === 'payment_success') {
+            showMatchingScreen(data.amount);
+        }
+    }
 });
