@@ -417,10 +417,38 @@ function connectWebSocket() {
                 case 'game_start':
                     document.getElementById('matching-screen').style.display = 'none';
                     document.getElementById('game-screen').style.display = 'block';
+                    
+                    // Update player buttons with actual player info
+                    const player1Btn = document.getElementById('player1-btn');
+                    const player2Btn = document.getElementById('player2-btn');
+                    
+                    player1Btn.textContent = `Player 1 (${data.player1Id})`;
+                    player2Btn.textContent = `Player 2 (${data.player2Id})`;
+                    
+                    // Add click handlers
+                    player1Btn.onclick = () => {
+                        ws.send(JSON.stringify({
+                            type: 'game_winner',
+                            gameId: data.gameId,
+                            winnerId: data.player1Id
+                        }));
+                        disableGameButtons();
+                    };
+                    
+                    player2Btn.onclick = () => {
+                        ws.send(JSON.stringify({
+                            type: 'game_winner',
+                            gameId: data.gameId,
+                            winnerId: data.player2Id
+                        }));
+                        disableGameButtons();
+                    };
                     break;
 
-                case 'error':
-                    console.error('Server error:', data.message);
+                case 'game_over':
+                    document.getElementById('game-status').textContent = 
+                        `Game Over! Winner: Player ${data.winnerId}`;
+                    disableGameButtons();
                     break;
             }
         } catch (error) {
@@ -462,3 +490,8 @@ window.Telegram.WebApp.MainButton.onClick(() => {
         showGameScreen();
     }
 });
+
+function disableGameButtons() {
+    document.getElementById('player1-btn').disabled = true;
+    document.getElementById('player2-btn').disabled = true;
+}

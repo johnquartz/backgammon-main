@@ -45,12 +45,60 @@ wss.on('connection', (ws, req) => {
     console.log('New WebSocket connection');
 
     // Handle client registration with their userId
-    ws.on('message', (message) => {
+    ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
+            
             if (data.type === 'register') {
                 clients.set(data.userId, ws);
                 console.log(`Client registered: ${data.userId}`);
+            }
+            else if (data.type === 'game_winner') {
+                console.log(`Game ${data.gameId} winner: ${data.winnerId}`);
+                
+                // Get game info from database
+                const gameRef = db.ref(`games/${data.gameId}`);
+                const gameSnapshot = await gameRef.once('value');
+                const game = gameSnapshot.val();
+                
+                if (game) {
+                    const totalAmount = game.betAmount * 2; // Both players' bets
+                    
+                    try {
+                        // Create payment form for winner
+                        const invoice = {
+                            title: 'Game Winnings',
+                            description: `Congratulations! You won ${totalAmount} Stars!`,
+                            payload: `win-${data.gameId}`,
+                            provider_token: "",
+                            currency: 'XTR',
+                            amount: totalAmount
+                        };
+
+                        // Send stars to winner using Telegram's payment API
+                        await bot.sendInvoice(data.winnerId, invoice);
+                        
+                        // Update game status
+                        await gameRef.update({
+                            status: 'completed',
+                            winner: data.winnerId
+                        });
+                        
+                        // Notify both players
+                        [game.player1, game.player2].forEach(playerId => {
+                            const ws = clients.get(playerId);
+                            if (ws) {
+                                ws.send(JSON.stringify({
+                                    type: 'game_over',
+                                    winnerId: data.winnerId
+                                }));
+                            }
+                        });
+                        
+                    } catch (error) {
+                        console.error('Error sending stars to winner:', error);
+                    }
+                }
             }
         } catch (error) {
             console.error('Error handling WebSocket message:', error);
@@ -342,4 +390,36 @@ app.get('/', (req, res) => {
 // Start the server
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-}); 
+});
+
+async function sendStarsToWinner(userId, amount, gameId) {
+    try {
+        // Create a form ID (you might want to store this in your database)
+        const formId = Date.now();
+        
+        // Create the API request
+        const response = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/payments.sendStarsForm`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                form_id: formId,
+                invoice: {
+                    title: 'Game Winnings',
+                    description: `You won ${amount} Stars!`,
+                    payload: `win-${gameId}`,
+                    amount: amount,
+                    currency: 'XTR'
+                }
+            })
+        });
+
+        const result = await response.json();
+        console.log('Stars transfer result:', result);
+        return result;
+    } catch (error) {
+        console.error('Error sending stars:', error);
+        throw error;
+    }
+} 
