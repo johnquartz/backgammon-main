@@ -139,13 +139,22 @@ bot.on('successful_payment', async (msg) => {
             console.log('Removed players from matching pool');
 
             // Notify both players
+            const paymentEvent = {
+                eventType: 'payment_success',
+                eventData: { amount: amount }
+            };
             await Promise.all([
-                bot.sendMessage(player1[1].id, 'Game starting...', {
-                    web_app: { start_param: 'game_started' }
-                }),
-                bot.sendMessage(player2[1].id, 'Game starting...', {
-                    web_app: { start_param: 'game_started' }
-                })
+                bot.sendMessage(player1[1].id, JSON.stringify(paymentEvent)),
+                bot.sendMessage(player2[1].id, JSON.stringify(paymentEvent))
+            ]);
+            
+            const gameStartEvent = {
+                eventType: 'game_start',
+                eventData: {}
+            };
+            await Promise.all([
+                bot.sendMessage(player1[1].id, JSON.stringify(gameStartEvent)),
+                bot.sendMessage(player2[1].id, JSON.stringify(gameStartEvent))
             ]);
             
             console.log('Game setup complete:', gameId);
