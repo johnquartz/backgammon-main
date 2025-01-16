@@ -397,6 +397,19 @@ window.Telegram.WebApp.onEvent('mainButtonClicked', () => {
         const data = JSON.parse(eventData);
         if (data.event === 'payment_success') {
             showMatchingScreen(data.amount);
+        } else if (data.event === 'game_start') {
+            showGameScreen();
         }
     }
 });
+
+// Add this function to show game screen
+function showGameScreen() {
+    const matchingScreen = document.getElementById('matching-screen');
+    const gameScreen = document.getElementById('game-screen');
+    
+    if (matchingScreen && gameScreen) {
+        matchingScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+    }
+}

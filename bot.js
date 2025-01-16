@@ -131,8 +131,23 @@ bot.on('successful_payment', async (msg) => {
             await matchingRef.child(player2[0]).remove();
 
             // Notify both players
-            await bot.sendMessage(player1[1].id, 'Opponent found! Game starting...');
-            await bot.sendMessage(player2[1].id, 'Opponent found! Game starting...');
+            const gameStartData = {
+                event: 'game_start'
+            };
+
+            await bot.sendMessage(player1[1].id, 'Game starting...', {
+                web_app: {
+                    query_id: msg.web_app_query_id,
+                    data: JSON.stringify(gameStartData)
+                }
+            });
+
+            await bot.sendMessage(player2[1].id, 'Game starting...', {
+                web_app: {
+                    query_id: msg.web_app_query_id,
+                    data: JSON.stringify(gameStartData)
+                }
+            });
 
             console.log(`Matched players ${player1[1].id} and ${player2[1].id} in game ${gameId}`);
         } else {
