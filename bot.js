@@ -42,23 +42,26 @@ const clients = new Map();
 
 // WebSocket connection handling
 wss.on('connection', async (ws, req) => {
-    console.log('New WebSocket connection');
+    console.log('New WebSocket connection established');
 
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
+            console.log('Received WebSocket message:', data);
             
             if (data.type === 'register') {
                 const userId = data.userId;
+                console.log('Registering client with userId:', userId);
                 clients.set(userId, ws);
-                console.log(`Client registered: ${userId}`);
 
                 // Get and send user's coin balance
                 const userRef = db.ref(`users/${userId}`);
+                console.log('Fetching user data from database...');
                 const snapshot = await userRef.once('value');
                 let userBalance = 0;
 
                 if (!snapshot.exists()) {
+                    console.log('Creating new user in database...');
                     // New user - create account with initial 1000 coins
                     await userRef.set({
                         id: userId,
@@ -66,19 +69,20 @@ wss.on('connection', async (ws, req) => {
                         created_at: admin.database.ServerValue.TIMESTAMP
                     });
                     userBalance = 1000;
-                    console.log(`Created new user ${userId} with 1000 coins`);
                 } else {
                     userBalance = snapshot.val().coins;
-                    console.log(`Existing user ${userId} has ${userBalance} coins`);
+                    console.log('Found existing user with balance:', userBalance);
                 }
 
                 // Send balance to client
+                console.log('Sending balance update to client:', userBalance);
                 ws.send(JSON.stringify({
                     type: 'balance_update',
                     balance: userBalance
                 }));
             }
             else if (data.type === 'place_bet') {
+                console.log('Received bet request:', data);
                 const userId = data.userId;
                 const amount = data.amount;
                 
@@ -87,7 +91,10 @@ wss.on('connection', async (ws, req) => {
                 const snapshot = await userRef.once('value');
                 const user = snapshot.val();
 
+                console.log('User data for bet:', user);
+
                 if (!user || user.coins < amount) {
+                    console.log('Insufficient coins for bet');
                     ws.send(JSON.stringify({
                         type: 'error',
                         message: 'Insufficient coins'
@@ -96,11 +103,13 @@ wss.on('connection', async (ws, req) => {
                 }
 
                 // Deduct coins
+                console.log('Deducting coins from user balance...');
                 await userRef.update({
                     coins: user.coins - amount
                 });
 
                 // Add to matching pool
+                console.log('Adding user to matching pool...');
                 const matchingRef = db.ref(`matching/${amount}`);
                 await matchingRef.child(userId).set({
                     id: userId,
@@ -230,20 +239,26 @@ app.post(`/webhook/${process.env.BOT_TOKEN}`, (req, res) => {
 // Bot commands
 bot.onText(/\/start/, async (msg) => {
     const userId = msg.from.id;
+    console.log('Start command received from user:', userId);
     
     try {
         // Check if user exists
         const userRef = db.ref(`users/${userId}`);
+        console.log('Checking if user exists in database...');
         const snapshot = await userRef.once('value');
         
         if (!snapshot.exists()) {
+            console.log('Creating new user with 1000 coins...');
             // New user - create account with initial 1000 coins
             await userRef.set({
                 id: userId,
                 coins: 1000,
                 created_at: admin.database.ServerValue.TIMESTAMP
             });
+            console.log('New user created successfully');
             await bot.sendMessage(userId, 'Welcome! You received 1000 coins to start playing!');
+        } else {
+            console.log('Existing user found:', snapshot.val());
         }
         
         // Send the web app keyboard

@@ -322,6 +322,7 @@ function handleBetClick(amount) {
     if (isProcessing) return;
     isProcessing = true;
 
+    console.log('Placing bet of', amount, 'coins');
     const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
     
     // Send bet request through WebSocket
@@ -367,10 +368,11 @@ function updateBalance(balance) {
 
 function connectWebSocket() {
     const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+    console.log('Connecting WebSocket with userId:', userId);
     ws = new WebSocket('wss://betgammon-backend.onrender.com');
 
     ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected, registering client...');
         // Register client with userId and request balance
         ws.send(JSON.stringify({
             type: 'register',
@@ -385,6 +387,7 @@ function connectWebSocket() {
 
             switch (data.type) {
                 case 'balance_update':
+                    console.log('Updating balance to:', data.balance);
                     updateBalance(data.balance);
                     break;
 
@@ -437,14 +440,14 @@ function connectWebSocket() {
         }
     };
 
-    ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        // Attempt to reconnect after a delay
-        setTimeout(connectWebSocket, 3000);
-    };
-
     ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        // Try to reconnect after a delay
+        setTimeout(connectWebSocket, 3000);
     };
 }
 
