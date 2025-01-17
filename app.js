@@ -389,14 +389,20 @@ function showGameScreen() {
 }
 
 let ws;
+let currentBalance = 0;
+
+function updateBalance(balance) {
+    currentBalance = balance;
+    document.getElementById('coin-balance').textContent = balance;
+}
 
 function connectWebSocket() {
     const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
-    ws = new WebSocket('wss://betgammon.onrender.com');
+    ws = new WebSocket('wss://betgammon-backend.onrender.com');
 
     ws.onopen = () => {
         console.log('WebSocket connected');
-        // Register client with userId
+        // Register client with userId and request balance
         ws.send(JSON.stringify({
             type: 'register',
             userId: userId
@@ -409,23 +415,26 @@ function connectWebSocket() {
             console.log('Received WebSocket message:', data);
 
             switch (data.type) {
+                case 'balance_update':
+                    updateBalance(data.balance);
+                    break;
+
                 case 'payment_success':
                     document.getElementById('betting-screen').style.display = 'none';
                     document.getElementById('matching-screen').style.display = 'block';
+                    updateBalance(data.remainingCoins);
                     break;
 
                 case 'game_start':
                     document.getElementById('matching-screen').style.display = 'none';
                     document.getElementById('game-screen').style.display = 'block';
                     
-                    // Update player buttons with actual player info
                     const player1Btn = document.getElementById('player1-btn');
                     const player2Btn = document.getElementById('player2-btn');
                     
                     player1Btn.textContent = `Player 1 (${data.player1Id})`;
                     player2Btn.textContent = `Player 2 (${data.player2Id})`;
                     
-                    // Add click handlers
                     player1Btn.onclick = () => {
                         ws.send(JSON.stringify({
                             type: 'game_winner',
@@ -448,6 +457,9 @@ function connectWebSocket() {
                 case 'game_over':
                     document.getElementById('game-status').textContent = 
                         `Game Over! Winner: Player ${data.winnerId}`;
+                    if (data.balance) {
+                        updateBalance(data.balance);
+                    }
                     disableGameButtons();
                     break;
             }

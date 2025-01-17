@@ -10,24 +10,12 @@
 <body>
     <div id="app">
         <div id="betting-screen" class="screen">
-            <h1>Backgammon Stars</h1>
-            <div class="bet-options">
-                <button class="bet-button" data-amount="1">
-                    <span class="stars">⭐</span>
-                    <span class="amount">1 Star</span>
-                </button>
-                <button class="bet-button" data-amount="100">
-                    <span class="stars">⭐</span>
-                    <span class="amount">100 Stars</span>
-                </button>
-                <button class="bet-button" data-amount="1000">
-                    <span class="stars">⭐</span>
-                    <span class="amount">1,000 Stars</span>
-                </button>
-                <button class="bet-button" data-amount="10000">
-                    <span class="stars">⭐</span>
-                    <span class="amount">10,000 Stars</span>
-                </button>
+            <h2>Place Your Bet</h2>
+            <p>Your balance: <span id="coin-balance">Loading...</span> coins</p>
+            <div class="bet-buttons">
+                <button class="bet-button" data-amount="10">Bet 10 coins</button>
+                <button class="bet-button" data-amount="50">Bet 50 coins</button>
+                <button class="bet-button" data-amount="100">Bet 100 coins</button>
             </div>
         </div>
         

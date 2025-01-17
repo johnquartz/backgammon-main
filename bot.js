@@ -145,19 +145,36 @@ app.post(`/webhook/${process.env.BOT_TOKEN}`, (req, res) => {
 
 // Bot commands
 bot.onText(/\/start/, async (msg) => {
+    const userId = msg.from.id;
+    
     try {
-        await bot.sendMessage(msg.chat.id, 'Welcome to Backgammon Stars!', {
+        // Check if user exists
+        const userRef = db.ref(`users/${userId}`);
+        const snapshot = await userRef.once('value');
+        
+        if (!snapshot.exists()) {
+            // New user - create account with initial 1000 coins
+            await userRef.set({
+                id: userId,
+                coins: 1000,
+                created_at: admin.database.ServerValue.TIMESTAMP
+            });
+            await bot.sendMessage(userId, 'Welcome! You received 1000 coins to start playing!');
+        }
+        
+        // Send the web app keyboard
+        await bot.sendMessage(userId, 'Ready to play?', {
             reply_markup: {
                 inline_keyboard: [[
                     {
-                        text: 'Play Now',
-                        web_app: { url: 'https://johnquartz.github.io/backgammon-main/' }
+                        text: '🎲 Play Backgammon',
+                        web_app: { url: process.env.WEBAPP_URL }
                     }
                 ]]
             }
         });
     } catch (error) {
-        console.error('Error sending welcome message:', error);
+        console.error('Error handling start command:', error);
     }
 });
 
@@ -421,5 +438,64 @@ async function sendStarsToWinner(userId, amount, gameId) {
     } catch (error) {
         console.error('Error sending stars:', error);
         throw error;
+    }
+} 
+
+// When user clicks bet button
+async function handleBet(userId, amount) {
+    try {
+        const userRef = db.ref(`users/${userId}`);
+        const snapshot = await userRef.once('value');
+        const user = snapshot.val();
+
+        if (!user || user.coins < amount) {
+            throw new Error('Insufficient coins');
+        }
+
+        // Deduct coins and add to matching pool
+        await userRef.update({
+            coins: user.coins - amount
+        });
+
+        // Add to matching pool
+        const matchingRef = db.ref(`matching/${amount}`);
+        await matchingRef.child(userId).set({
+            id: userId,
+            timestamp: admin.database.ServerValue.TIMESTAMP,
+            betPlaced: true
+        });
+
+        // Notify client
+        const ws = clients.get(userId);
+        if (ws) {
+            ws.send(JSON.stringify({
+                type: 'payment_success',
+                amount: amount,
+                remainingCoins: user.coins - amount
+            }));
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error handling bet:', error);
+        return false;
+    }
+}
+
+// Handle winner payment
+async function sendCoinsToWinner(userId, amount) {
+    try {
+        const userRef = db.ref(`users/${userId}`);
+        const snapshot = await userRef.once('value');
+        const user = snapshot.val();
+
+        await userRef.update({
+            coins: user.coins + amount
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error sending coins to winner:', error);
+        return false;
     }
 } 
