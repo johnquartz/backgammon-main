@@ -41,62 +41,166 @@ bot.setWebHook(`${url}/webhook/${process.env.BOT_TOKEN}`);
 const clients = new Map();
 
 // WebSocket connection handling
-wss.on('connection', (ws, req) => {
+wss.on('connection', async (ws, req) => {
     console.log('New WebSocket connection');
 
-    // Handle client registration with their userId
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
             
             if (data.type === 'register') {
-                clients.set(data.userId, ws);
-                console.log(`Client registered: ${data.userId}`);
+                const userId = data.userId;
+                clients.set(userId, ws);
+                console.log(`Client registered: ${userId}`);
+
+                // Get and send user's coin balance
+                const userRef = db.ref(`users/${userId}`);
+                const snapshot = await userRef.once('value');
+                let userBalance = 0;
+
+                if (!snapshot.exists()) {
+                    // New user - create account with initial 1000 coins
+                    await userRef.set({
+                        id: userId,
+                        coins: 1000,
+                        created_at: admin.database.ServerValue.TIMESTAMP
+                    });
+                    userBalance = 1000;
+                    console.log(`Created new user ${userId} with 1000 coins`);
+                } else {
+                    userBalance = snapshot.val().coins;
+                    console.log(`Existing user ${userId} has ${userBalance} coins`);
+                }
+
+                // Send balance to client
+                ws.send(JSON.stringify({
+                    type: 'balance_update',
+                    balance: userBalance
+                }));
+            }
+            else if (data.type === 'place_bet') {
+                const userId = data.userId;
+                const amount = data.amount;
+                
+                // Check user's balance
+                const userRef = db.ref(`users/${userId}`);
+                const snapshot = await userRef.once('value');
+                const user = snapshot.val();
+
+                if (!user || user.coins < amount) {
+                    ws.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Insufficient coins'
+                    }));
+                    return;
+                }
+
+                // Deduct coins
+                await userRef.update({
+                    coins: user.coins - amount
+                });
+
+                // Add to matching pool
+                const matchingRef = db.ref(`matching/${amount}`);
+                await matchingRef.child(userId).set({
+                    id: userId,
+                    timestamp: admin.database.ServerValue.TIMESTAMP
+                });
+
+                console.log(`Player ${userId} bet ${amount} coins, added to matching pool`);
+
+                // Send updated balance
+                ws.send(JSON.stringify({
+                    type: 'payment_success',
+                    amount: amount,
+                    remainingCoins: user.coins - amount
+                }));
+
+                // Check for opponent
+                const matchSnapshot = await matchingRef.once('value');
+                const players = matchSnapshot.val();
+                
+                if (players && Object.keys(players).length >= 2) {
+                    const sortedPlayers = Object.entries(players)
+                        .sort((a, b) => a[1].timestamp - b[1].timestamp)
+                        .slice(0, 2);
+                    
+                    const [player1, player2] = sortedPlayers;
+                    
+                    // Create game room
+                    const gameId = `game_${Date.now()}`;
+                    const gameRef = db.ref(`games/${gameId}`);
+                    
+                    await gameRef.set({
+                        player1: player1[1].id,
+                        player2: player2[1].id,
+                        betAmount: amount,
+                        status: 'starting',
+                        timestamp: admin.database.ServerValue.TIMESTAMP
+                    });
+
+                    // Remove matched players from pool
+                    await Promise.all([
+                        matchingRef.child(player1[0]).remove(),
+                        matchingRef.child(player2[0]).remove()
+                    ]);
+
+                    // Notify both players
+                    [player1[1].id, player2[1].id].forEach(playerId => {
+                        const playerWs = clients.get(playerId);
+                        if (playerWs) {
+                            playerWs.send(JSON.stringify({
+                                type: 'game_start',
+                                gameId: gameId,
+                                player1Id: player1[1].id,
+                                player2Id: player2[1].id
+                            }));
+                        }
+                    });
+                }
             }
             else if (data.type === 'game_winner') {
-                console.log(`Game ${data.gameId} winner: ${data.winnerId}`);
-                
-                // Get game info from database
                 const gameRef = db.ref(`games/${data.gameId}`);
                 const gameSnapshot = await gameRef.once('value');
                 const game = gameSnapshot.val();
                 
                 if (game) {
-                    const totalAmount = game.betAmount * 2; // Both players' bets
+                    const totalAmount = game.betAmount * 2;
                     
-                    try {
-                        // Create payment form for winner
-                        const invoice = {
-                            title: 'Game Winnings',
-                            description: `Congratulations! You won ${totalAmount} Stars!`,
-                            payload: `win-${data.gameId}`,
-                            provider_token: "",
-                            currency: 'XTR',
-                            amount: totalAmount
-                        };
+                    // Add coins to winner's balance
+                    const winnerRef = db.ref(`users/${data.winnerId}`);
+                    const winnerSnapshot = await winnerRef.once('value');
+                    const winner = winnerSnapshot.val();
+                    
+                    await winnerRef.update({
+                        coins: winner.coins + totalAmount
+                    });
 
-                        // Send stars to winner using Telegram's payment API
-                        await bot.sendInvoice(data.winnerId, invoice);
-                        
-                        // Update game status
-                        await gameRef.update({
-                            status: 'completed',
-                            winner: data.winnerId
-                        });
-                        
-                        // Notify both players
-                        [game.player1, game.player2].forEach(playerId => {
-                            const ws = clients.get(playerId);
-                            if (ws) {
-                                ws.send(JSON.stringify({
-                                    type: 'game_over',
-                                    winnerId: data.winnerId
-                                }));
-                            }
-                        });
-                        
-                    } catch (error) {
-                        console.error('Error sending stars to winner:', error);
+                    // Update game status
+                    await gameRef.update({
+                        status: 'completed',
+                        winner: data.winnerId,
+                        completedAt: admin.database.ServerValue.TIMESTAMP
+                    });
+
+                    // Notify both players
+                    [game.player1, game.player2].forEach(playerId => {
+                        const playerWs = clients.get(playerId);
+                        if (playerWs) {
+                            playerWs.send(JSON.stringify({
+                                type: 'game_over',
+                                winnerId: data.winnerId
+                            }));
+                        }
+                    });
+
+                    // Send winner their updated balance
+                    const winnerWs = clients.get(data.winnerId);
+                    if (winnerWs) {
+                        winnerWs.send(JSON.stringify({
+                            type: 'balance_update',
+                            balance: winner.coins + totalAmount
+                        }));
                     }
                 }
             }
@@ -116,26 +220,6 @@ wss.on('connection', (ws, req) => {
         }
     });
 });
-
-// Handle star transactions
-async function createStarTransaction(userId, amount) {
-    try {
-        const result = await bot.sendInvoice(
-            userId,
-            "Backgammon Bet", // Title
-            `Bet ${amount} Stars`, // Description
-            `bet_${Date.now()}`, // Payload
-            "", // Provider token (not needed for Stars)
-            "XTR", // Currency
-            [{ label: "Bet", amount: amount }], // Prices
-            { start_parameter: "bet_game" } // Optional parameters
-        );
-        return result;
-    } catch (error) {
-        console.error('Error details:', error);
-        throw error;
-    }
-}
 
 // Webhook endpoint
 app.post(`/webhook/${process.env.BOT_TOKEN}`, (req, res) => {

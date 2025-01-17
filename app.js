@@ -318,49 +318,18 @@ function showSearchingUI(amount) {
 // Add a flag to prevent multiple clicks
 let isProcessing = false;
 
-async function handleBetClick(amount) {
+function handleBetClick(amount) {
     if (isProcessing) return;
+    isProcessing = true;
+
+    const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
     
-    try {
-        isProcessing = true;
-        const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
-        
-        const response = await fetch(`${API_URL}/create-bet`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                userId: userId,
-                amount: parseInt(amount)
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        // Show payment pending screen
-        const bettingScreen = document.getElementById('betting-screen');
-        const paymentScreen = document.getElementById('payment-screen');
-        
-        if (bettingScreen && paymentScreen) {
-            bettingScreen.style.display = 'none';
-            paymentScreen.innerHTML = `
-                <h2>Payment Required</h2>
-                <p>Please complete the payment of ${amount} Stars in the Telegram chat.</p>
-                <p>The game will start automatically once payment is confirmed.</p>
-            `;
-            paymentScreen.style.display = 'block';
-        }
-
-    } catch (error) {
-        console.error('Error:', error);
-    } finally {
-        setTimeout(() => {
-            isProcessing = false;
-        }, 2000);
-    }
+    // Send bet request through WebSocket
+    ws.send(JSON.stringify({
+        type: 'place_bet',
+        userId: userId,
+        amount: amount
+    }));
 }
 
 function showMatchingScreen(amount) {
